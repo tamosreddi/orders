@@ -57,3 +57,21 @@
 - **Never hallucinate libraries or functions** – only use known, verified Python packages.
 - **Always confirm file paths and module names** exist before referencing them in code or tests.
 - **Never delete or overwrite existing code** unless explicitly instructed to or if part of a task from `TASK.md`.
+
+### 💻 Front-End (Next JS + Tailwind) Rules
+- **Use Next 14 App Router with TypeScript**; place pages under `/app`.
+- **Folder conventions**  
+/app → route segments & layouts
+/components → UI & reusable hooks
+/lib → client / server utilities
+/types → shared TS types (prefer Zod for runtime validation)
+/styles → global.css + Tailwind layers
+
+- **File size**: no React/TSX file > 300 lines.
+- **Styling**: Tailwind classes only; tokens come from `design/tokens.md`.  
+*Never* inline `<style>` or CSS Modules unless explicitly requested.
+- **Testing**:  
+- Use **Jest + @testing-library/react** for unit/integration tests.  
+- Snapshot tests for critical visual components are encouraged.
+- **Lint/Format**: `eslint --fix` + `prettier` using the Next.js default ruleset.
+- **Env vars**: store browser-safe keys in `.env.local`, load via `process.env.NEXT_PUBLIC_*`.
