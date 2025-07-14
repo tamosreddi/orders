@@ -55,14 +55,6 @@ export function OrderTable({ orders, onRowClick, onBulkConfirm }: OrderTableProp
       enableSorting: false,
     }),
 
-    // Order # column
-    columnHelper.accessor('id', {
-      header: 'Order #',
-      cell: (info) => (
-        <span className="font-medium text-text-default">{info.getValue()}</span>
-      ),
-    }),
-
     // Customer column with avatar
     columnHelper.accessor('customer', {
       header: 'Customer',

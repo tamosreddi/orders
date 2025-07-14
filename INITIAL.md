@@ -47,17 +47,44 @@ User goals:
 
 ## Other Considerations / Gotchas
 
-| Area          | Constraint / Tip                                                                                 |
-|---------------|--------------------------------------------------------------------------------------------------|
-| Data layer    | **Dummy only**: import from `/lib/mockOrders.ts`. Place file in this PR.                         |
-| Types         | Create `/types/order.ts` with interface:<br>```ts<br>export interface Order { id:string; customer:{name:string; avatar:string}; channel:'WHATSAPP'|'SMS'|'EMAIL'; orderDate:string; products:number; status:'CONFIRMED'|'PENDING'; }``` |
-| Folder layout | Must follow:<br>`/app/orders/page.tsx` → main screen<br>`/components/OrderTable.tsx`, `OrderStatusBadge.tsx`, etc.<br>`/lib/` for data fetchers |
-| Styling       | Use **Tailwind classes** only; no inline styles. Add new tokens to `tailwind.config.js` per `design/tokens.md`. |
-| Accessibility | Table rows keyboard-navigable; checkboxes have `aria-label`.                                     |
-| Future hook   | Add `// TODO:` comments where Supabase fetch or ERP push will later plug in.                     |
-| ESLint/Prettier| Respect repo defaults (if not present, use Next.js 14 default).                                  |
+- **Data layer → dummy only**  
+  - Crea `/lib/mockOrders.ts` que exporte `const orders: Order[] = […]`.
 
----
+- **Type safety**  
+  - Define `/types/order.ts` con la interfaz:  
+    ```ts
+    export interface Order {
+      id: string;
+      customer: { name: string; avatar: string };
+      channel: 'WHATSAPP' | 'SMS' | 'EMAIL';
+      orderDate: string;      // ISO
+      products: number;       // total items
+      status: 'CONFIRMED' | 'PENDING';
+    }
+    ```
+
+- **Folder structure (obligatorio)**  
+/app/orders/page.tsx
+/components/OrderTable.tsx
+/components/OrderStatusBadge.tsx
+/components/OrderDrawer.tsx (placeholder)
+/lib/mockOrders.ts
+/types/order.ts
+
+- **Styling → solo Tailwind**  
+- Agrega los tokens de `design/tokens.md` a `tailwind.config.js`.  
+- Prohibido usar estilos inline o CSS modules.
+
+- **Accesibilidad**  
+- Checkboxes con `aria-label`.  
+- Filas deben ser focus-able (`tabIndex={0}`).
+
+- **Future hooks**  
+- Coloca comentarios `// TODO Supabase` y `// TODO ERP` donde apliquen; no implementes integración real.
+
+- **Lint / Format**  
+- Usa la configuración ESLint + Prettier generada por `create-next-app`.
+
 
 *Commit message suggestion*:  
 `feat: Orders dashboard v0 with mock data & design tokens`

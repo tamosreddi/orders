@@ -1,3 +1,48 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom design token classes */
+@layer utilities {
+  .text-heading-xl {
+    font-size: 3rem;
+    line-height: 1.125;
+    font-weight: 900;
+  }
+  
+  .text-primary-ink {
+    color: #000000;
+  }
+  
+  .text-text-muted {
+    color: #6B6B6B;
+  }
+  
+  .bg-surface-0 {
+    background-color: #FFFFFF;
+  }
+  
+  .bg-brand-navy-900 {
+    background-color: #0B0130;
+  }
+  
+  .bg-brand-navy-700 {
+    background-color: #1C0A53;
+  }
+  
+  .shadow-card {
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  }
+  
+  .max-w-container {
+    max-width: 1360px;
+  }
+  
+  .duration-medium {
+    transition-duration: 250ms;
+  }
+  
+  .ease-standard {
+    transition-timing-function: cubic-bezier(.4,0,.2,1);
+  }
+}
