@@ -6,52 +6,52 @@ interface CustomerStatusBadgeProps {
 }
 
 export function CustomerStatusBadge({ status }: CustomerStatusBadgeProps) {
-  const getStatusConfig = (status: CustomerStatus) => {
+  const getStatusStyles = () => {
     switch (status) {
       case 'ORDERING':
         return {
-          label: 'Ordering',
-          bgColor: 'bg-green-100',
-          textColor: 'text-green-800',
-          dotColor: 'bg-green-500'
+          dotColor: 'bg-state-success',
+          textColor: 'text-state-success',
+          label: 'Ordering'
         };
       case 'AT_RISK':
         return {
-          label: 'At risk',
-          bgColor: 'bg-yellow-100',
-          textColor: 'text-yellow-800',
-          dotColor: 'bg-yellow-500'
+          dotColor: 'bg-state-warning',
+          textColor: 'text-state-warning',
+          label: 'At risk'
         };
       case 'STOPPED_ORDERING':
         return {
-          label: 'Stopped ordering',
-          bgColor: 'bg-red-100',
-          textColor: 'text-red-800',
-          dotColor: 'bg-red-500'
+          dotColor: 'bg-red-500',
+          textColor: 'text-red-500',
+          label: 'Stopped ordering'
         };
       case 'NO_ORDERS_YET':
         return {
-          label: 'No orders yet',
-          bgColor: 'bg-gray-100',
-          textColor: 'text-gray-800',
-          dotColor: 'bg-gray-500'
+          dotColor: 'bg-gray-400',
+          textColor: 'text-gray-400',
+          label: 'No orders yet'
         };
       default:
         return {
-          label: 'Unknown',
-          bgColor: 'bg-gray-100',
-          textColor: 'text-gray-800',
-          dotColor: 'bg-gray-500'
+          dotColor: 'bg-gray-400',
+          textColor: 'text-gray-400',
+          label: status
         };
     }
   };
 
-  const config = getStatusConfig(status);
-
+  const styles = getStatusStyles();
+  
   return (
-    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bgColor} ${config.textColor}`}>
-      <div className={`w-2 h-2 rounded-full mr-1.5 ${config.dotColor}`} />
-      {config.label}
+    <div className="inline-flex items-center space-x-2">
+      {/* Status dot */}
+      <div className={`w-2 h-2 rounded-full ${styles.dotColor}`} />
+      
+      {/* Status text */}
+      <span className={`text-sm font-medium ${styles.textColor}`}>
+        {styles.label}
+      </span>
     </div>
   );
 }

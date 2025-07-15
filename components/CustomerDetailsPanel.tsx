@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Plus, Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { Customer, CustomerLabel, PREDEFINED_LABELS } from '../types/customer';
 import { CustomerStatusBadge } from './CustomerStatusBadge';
@@ -22,6 +23,28 @@ export function CustomerDetailsPanel({
   const [isEditingLabels, setIsEditingLabels] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState('#FEF3C7');
+
+  // Handle ESC key to close panel
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      // Prevent body scroll when panel is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen || !customer) return null;
 
@@ -69,191 +92,207 @@ export function CustomerDetailsPanel({
     });
   };
 
-  return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-xl z-50 overflow-y-auto">
-      <div className="p-6">
+  const panelContent = (
+    <div className="fixed inset-0 z-modal">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-medium"
+        onClick={onClose}
+      />
+      
+      {/* Panel */}
+      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-surface-0 shadow-modal transform transition-transform duration-medium">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Customer Details</h2>
+        <div className="flex items-center justify-between p-6 border-b border-surface-border">
+          <h2 className="text-body-lg font-semibold text-text-default">
+            Customer Details
+          </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="p-2 text-text-muted hover:text-text-default transition-colors duration-fast rounded-md hover:bg-surface-alt"
+            aria-label="Close customer details"
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Customer Info */}
-        <div className="mb-6">
-          <div className="flex items-center space-x-4 mb-4">
-            <div className="relative">
-              <Image
-                src={customer.avatar}
-                alt={customer.name}
-                width={64}
-                height={64}
-                className="rounded-full"
-              />
-              <div className="absolute -top-2 -right-2 bg-white border border-gray-200 rounded px-2 py-1 text-xs font-medium text-gray-600">
-                {customer.code}
-              </div>
-            </div>
+        {/* Content */}
+        <div className="p-6 space-y-6 overflow-y-auto h-full">
+          {/* Customer Summary */}
+          <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">{customer.name}</h3>
-              <p className="text-sm text-gray-600">{customer.email}</p>
-              {customer.phone && (
-                <p className="text-sm text-gray-600">{customer.phone}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <CustomerStatusBadge status={customer.status} />
-          </div>
-
-          {customer.address && (
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">{customer.address}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Labels Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-medium text-gray-700">Labels</h4>
-            <button
-              onClick={() => setIsEditingLabels(true)}
-              className="text-blue-600 hover:text-blue-700 text-sm"
-            >
-              <Plus className="h-4 w-4 inline mr-1" />
-              Add Label
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            {customer.labels.map((label) => (
-              <div
-                key={label.id}
-                className="flex items-center justify-between p-2 rounded"
-                style={{ backgroundColor: label.color }}
-              >
-                <span className="text-sm font-medium">
-                  {label.name}
-                  {label.value && (
-                    <span className="ml-1 opacity-75">{label.value}</span>
-                  )}
-                </span>
-                <button
-                  onClick={() => handleRemoveLabel(label.id)}
-                  className="text-gray-600 hover:text-red-600"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Add Label Form */}
-          {isEditingLabels && (
-            <div className="mt-3 p-3 border border-gray-200 rounded-lg">
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Label name"
-                  value={newLabelName}
-                  onChange={(e) => setNewLabelName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <h3 className="text-body font-semibold text-text-default mb-3">
+                Customer Summary
+              </h3>
+              <div className="flex items-center space-x-3 p-4 bg-surface-alt rounded-lg">
+                <Image
+                  src={customer.avatar}
+                  alt={customer.name}
+                  width={48}
+                  height={48}
+                  className="rounded-full"
                 />
-                <div className="flex space-x-2">
-                  {PREDEFINED_LABELS.map((predefinedLabel) => (
+                <div>
+                  <p className="text-body font-medium text-text-default">
+                    {customer.name}
+                  </p>
+                  <p className="text-caption text-text-muted">
+                    {customer.email}
+                  </p>
+                  <p className="text-caption text-text-muted">
+                    Code: {customer.code}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Customer Information */}
+          <div className="space-y-4">
+            <h3 className="text-body font-semibold text-text-default">
+              Customer Information
+            </h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-caption text-text-muted">Status</span>
+                <CustomerStatusBadge status={customer.status} />
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-caption text-text-muted">Total Orders</span>
+                <span className="text-body font-medium text-text-default">{customer.totalOrders}</span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-caption text-text-muted">Total Spent</span>
+                <span className="text-body text-text-default">
+                  {formatCurrency(customer.totalSpent)}
+                </span>
+              </div>
+
+              {customer.lastOrdered && (
+                <div className="flex justify-between items-center">
+                  <span className="text-caption text-text-muted">Last Order</span>
+                  <span className="text-body text-text-default">
+                    {formatDate(customer.lastOrdered)}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center">
+                <span className="text-caption text-text-muted">Joined</span>
+                <span className="text-body text-text-default">
+                  {formatDate(customer.joinedDate)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Labels Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-body font-semibold text-text-default">Labels</h3>
+              <button
+                onClick={() => setIsEditingLabels(true)}
+                className="text-caption font-medium text-text-default uppercase hover:opacity-90 transition-opacity duration-fast"
+              >
+                <Plus className="h-4 w-4 inline mr-1" />
+                Add Label
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {customer.labels.map((label) => (
+                <div
+                  key={label.id}
+                  className="flex items-center justify-between p-2 rounded"
+                  style={{ backgroundColor: label.color }}
+                >
+                  <span className="text-caption font-medium">
+                    {label.name}
+                    {label.value && (
+                      <span className="ml-1 opacity-75">{label.value}</span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveLabel(label.id)}
+                    className="text-text-muted hover:text-red-600 transition-colors duration-fast"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add Label Form */}
+            {isEditingLabels && (
+              <div className="mt-3 p-4 bg-surface-alt rounded-lg">
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Label name"
+                    value={newLabelName}
+                    onChange={(e) => setNewLabelName(e.target.value)}
+                    className="w-full px-3 py-2 border border-surface-border rounded-md text-caption focus:outline-none focus:ring-2 focus:ring-brand-navy-500"
+                  />
+                  <div className="flex space-x-2">
+                    {PREDEFINED_LABELS.map((predefinedLabel) => (
+                      <button
+                        key={predefinedLabel.name}
+                        onClick={() => setNewLabelColor(predefinedLabel.color)}
+                        className={`w-8 h-8 rounded border-2 transition-colors duration-fast ${
+                          newLabelColor === predefinedLabel.color
+                            ? 'border-text-default'
+                            : 'border-surface-border'
+                        }`}
+                        style={{ backgroundColor: predefinedLabel.color }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex space-x-2">
                     <button
-                      key={predefinedLabel.name}
-                      onClick={() => setNewLabelColor(predefinedLabel.color)}
-                      className={`w-8 h-8 rounded border-2 ${
-                        newLabelColor === predefinedLabel.color
-                          ? 'border-gray-400'
-                          : 'border-gray-200'
-                      }`}
-                      style={{ backgroundColor: predefinedLabel.color }}
-                    />
-                  ))}
+                      onClick={handleAddLabel}
+                      className="flex-1 py-3 px-4 bg-state-success text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast"
+                    >
+                      Add
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingLabels(false);
+                        setNewLabelName('');
+                        setNewLabelColor('#FEF3C7');
+                      }}
+                      className="flex-1 py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={handleAddLabel}
-                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-                  >
-                    Add
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditingLabels(false);
-                      setNewLabelName('');
-                      setNewLabelColor('#FEF3C7');
-                    }}
-                    className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Order History */}
-        <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Order History</h4>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Total Orders:</span>
-              <span className="font-medium">{customer.totalOrders}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Total Spent:</span>
-              <span className="font-medium">{formatCurrency(customer.totalSpent)}</span>
-            </div>
-            {customer.lastOrdered && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Last Order:</span>
-                <span className="font-medium">{formatDate(customer.lastOrdered)}</span>
-              </div>
-            )}
-            {customer.expectedOrder && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Expected Order:</span>
-                <span className="font-medium">{formatDate(customer.expectedOrder)}</span>
               </div>
             )}
           </div>
-        </div>
 
-        {/* Account Info */}
-        <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Account Information</h4>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Joined:</span>
-              <span className="font-medium">{formatDate(customer.joinedDate)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Status:</span>
-              <span className="font-medium capitalize">{customer.invitationStatus.toLowerCase()}</span>
+          {/* Actions */}
+          <div className="space-y-4 pt-4 border-t border-surface-border">
+            <h3 className="text-body font-semibold text-text-default">
+              Actions
+            </h3>
+            <div className="space-y-2">
+              <button className="w-full py-3 px-4 bg-state-success text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast">
+                Start Chat
+              </button>
+              <button className="w-full py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast">
+                View Order History
+              </button>
             </div>
           </div>
-        </div>
-
-        {/* Actions */}
-        <div className="border-t pt-4">
-          <button
-            disabled
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Send Message
-          </button>
         </div>
       </div>
     </div>
   );
+
+  // Use portal to render outside of normal DOM hierarchy
+  return typeof window !== 'undefined' 
+    ? createPortal(panelContent, document.body)
+    : null;
 }

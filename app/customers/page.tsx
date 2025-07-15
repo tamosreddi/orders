@@ -129,53 +129,57 @@ export default function CustomersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-600">Loading customers...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-text-muted">Loading customers...</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">CUSTOMERS</h1>
+    <div className="min-h-screen bg-surface-0">
+      <div className="max-w-container mx-auto px-6 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-heading-xl font-sans text-primary-ink font-antialiased">
+            CUSTOMERS
+          </h1>
         </div>
-        <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-          <span>Customers synced</span>
+
+        {/* Tab Filter Bar and Action Buttons */}
+        <div className="mb-6 flex items-start justify-between">
+          <CustomerTabFilterBar
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            onFilterPopupOpen={() => setIsFilterPopupOpen(true)}
+            searchValue={searchValue}
+            onSearchChange={handleSearchChange}
+          />
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            <span>Customers synced</span>
+          </div>
+        </div>
+
+        {/* Customers Table */}
+        <div className="bg-surface-0 rounded-lg shadow-card">
+          <CustomerTable
+            customers={paginatedCustomers}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+            onCustomerSelect={handleCustomerSelect}
+          />
+
+          {/* Table Pagination */}
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
-
-      {/* Filters */}
-      <CustomerTabFilterBar
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-        onFilterPopupOpen={() => setIsFilterPopupOpen(true)}
-        searchValue={searchValue}
-        onSearchChange={handleSearchChange}
-      />
-
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow">
-        <CustomerTable
-          customers={paginatedCustomers}
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
-          onCustomerSelect={handleCustomerSelect}
-        />
-      </div>
-
-      {/* Pagination */}
-      <TablePagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        pageSize={pageSize}
-        totalItems={totalItems}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
-      />
 
       {/* Filter Popup */}
       <CustomerFilterPopup

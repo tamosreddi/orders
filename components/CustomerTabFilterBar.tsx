@@ -31,65 +31,60 @@ export function CustomerTabFilterBar({
   ];
 
   return (
-    <div className="flex items-center justify-between mb-6">
-      {/* Left side - Tabs */}
-      <div className="flex mr-6">
-        {tabs.map((tab, index) => {
-          const isActive = filters.tab === tab.key;
-          const showBadge = tab.key === 'PENDING';
-          
-          return (
-            <button
-              key={tab.key}
-              onClick={() => handleTabChange(tab.key)}
-              className={`
-                relative px-4 py-2 text-sm font-medium transition-colors
-                ${isActive 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-500 hover:text-gray-700'
-                }
-                ${index > 0 ? 'ml-6' : ''}
-              `}
-            >
-              {tab.label}
-              {showBadge && (
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  2
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+    <div className="flex items-center justify-between">
+      {/* Left side - Tabs and Search */}
+      <div className="flex items-center">
+        {/* Tabs */}
+        <div className="flex mr-6">
+          {tabs.map((tab, index) => {
+            const isActive = filters.tab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key)}
+                className={`
+                  px-4 py-2 text-sm font-medium border-b-2 transition-all duration-fast
+                  ${isActive 
+                    ? 'border-brand-navy-900 text-brand-navy-900' 
+                    : 'border-transparent text-text-muted hover:text-text-default hover:border-gray-300'
+                  }
+                  ${index === 0 ? 'mr-6' : ''}
+                `}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Right side - Search, Filter, and Invite button */}
-      <div className="flex items-center space-x-4">
-        {/* Search Input */}
-        <div className="relative">
+        {/* Search Bar */}
+        <div className="relative mr-3">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <input
             type="text"
-            placeholder="Search or filter customers..."
+            placeholder="Search customers..."
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-navy-500 focus:border-transparent w-64 transition-all duration-fast"
           />
         </div>
+      </div>
 
-        {/* Filter Dropdown */}
-        <button
+      {/* Right side - Filter Buttons and Invite button */}
+      <div className="flex items-center space-x-3">
+        <button 
           onClick={onFilterPopupOpen}
-          className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="flex items-center gap-2 px-3 py-2 text-sm text-text-muted border border-gray-300 rounded-md hover:text-text-default hover:border-gray-400 transition-colors"
         >
-          <Filter className="h-4 w-4" />
-          <span>Filter customers</span>
-          <ChevronDown className="h-4 w-4" />
+          <Filter size={16} />
+          Filter
+          <ChevronDown size={16} />
         </button>
-
+        
         {/* Invite New Customer Button */}
         <button
           disabled
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center space-x-2 px-4 py-2 bg-state-success text-white rounded-md text-sm font-medium hover:opacity-90 transition-opacity duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="h-4 w-4" />
           <span>INVITE NEW CUSTOMER</span>
