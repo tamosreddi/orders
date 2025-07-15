@@ -205,7 +205,7 @@ export default function OrderReviewPage() {
             {/* Delivery Date and Postal Code */}
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Fecha de entrega
                 </label>
                 <input
@@ -215,7 +215,7 @@ export default function OrderReviewPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Número postal
                 </label>
                 <input
