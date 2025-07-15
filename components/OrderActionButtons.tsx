@@ -21,7 +21,38 @@ export function OrderActionButtons({
   const selectedOrderIds = selectedOrders.map(order => order.id);
 
   return (
-    <div className="flex flex-col items-end space-y-3">
+    <div className="flex items-center space-x-2">
+      {/* Delete and Upload Buttons */}
+      <button
+        onClick={() => onDelete(selectedOrderIds)}
+        disabled={!hasSelection}
+        className={`
+          p-2 rounded-md transition-all duration-fast
+          ${hasSelection
+            ? 'text-red-600 hover:bg-red-50 border border-red-200'
+            : 'text-gray-400 cursor-not-allowed border border-gray-200'
+          }
+        `}
+        title="Delete"
+      >
+        <Trash2 size={16} />
+      </button>
+
+      <button
+        onClick={() => onUpload(selectedOrderIds)}
+        disabled={!hasSelection}
+        className={`
+          p-2 rounded-md transition-all duration-fast
+          ${hasSelection
+            ? 'text-blue-600 hover:bg-blue-50 border border-blue-200'
+            : 'text-gray-400 cursor-not-allowed border border-gray-200'
+          }
+        `}
+        title="Upload"
+      >
+        <Upload size={16} />
+      </button>
+
       {/* Confirm Order Button */}
       <button
         onClick={() => onConfirm(selectedOrderIds)}
@@ -37,39 +68,6 @@ export function OrderActionButtons({
         <Check size={16} className="inline mr-2" />
         Confirm Order
       </button>
-
-      {/* Delete and Upload Buttons */}
-      <div className="flex items-center space-x-2">
-        <button
-          onClick={() => onDelete(selectedOrderIds)}
-          disabled={!hasSelection}
-          className={`
-            p-2 rounded-md transition-all duration-fast
-            ${hasSelection
-              ? 'text-red-600 hover:bg-red-50 border border-red-200'
-              : 'text-gray-400 cursor-not-allowed border border-gray-200'
-            }
-          `}
-          title="Delete"
-        >
-          <Trash2 size={16} />
-        </button>
-
-        <button
-          onClick={() => onUpload(selectedOrderIds)}
-          disabled={!hasSelection}
-          className={`
-            p-2 rounded-md transition-all duration-fast
-            ${hasSelection
-              ? 'text-blue-600 hover:bg-blue-50 border border-blue-200'
-              : 'text-gray-400 cursor-not-allowed border border-gray-200'
-            }
-          `}
-          title="Upload"
-        >
-          <Upload size={16} />
-        </button>
-      </div>
     </div>
   );
 }

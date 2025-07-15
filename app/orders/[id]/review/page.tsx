@@ -156,11 +156,11 @@ export default function OrderReviewPage() {
           {/* Review Notice - Fixed at top */}
           <div className="bg-gray-100 border-b border-gray-200 shadow-sm">
             <div className="p-4 flex items-start space-x-3">
-              <div className="w-5 h-5 text-gray-600 mt-0.5">
+              <div className="w-5 h-3 text-gray-600 mt-0.5">
                 ℹ️
               </div>
               <p className="text-sm text-gray-700">
-                Revise todos los elementos con cuidado: es posible que los resultados de la IA no siempre sean precisos.
+                Revise todos los elementos con cuidado: los resultados de la IA no siempre son precisos.
               </p>
             </div>
           </div>
@@ -203,7 +203,7 @@ export default function OrderReviewPage() {
             </div>
 
             {/* Delivery Date and Postal Code */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Fecha de entrega
@@ -226,7 +226,8 @@ export default function OrderReviewPage() {
               </div>
             </div>
 
-            {/* Requirements Notice */}
+            {/* 
+            // Requirements Notice (oculto temporalmente)
             <div className="flex items-start space-x-3 mb-4">
               <div className="w-5 h-5 text-blue-500 mt-0.5">
                 📦
@@ -235,6 +236,7 @@ export default function OrderReviewPage() {
                 Los plazos de entrega deben acordarse con antelación y cumplir con los horarios de HOC CS. Los términos y condiciones de HOC CS tienen prioridad en todo momento.
               </p>
             </div>
+            */}
           </div>
 
           {/* Scrollable Bottom Section */}

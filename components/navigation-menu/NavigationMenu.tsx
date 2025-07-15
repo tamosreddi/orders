@@ -31,8 +31,7 @@ const navigationItems: NavigationItem[] = [
     id: 'customers',
     label: 'Customers',
     href: '/customers',
-    icon: 'Users',
-    isDisabled: true
+    icon: 'Users'
   },
   {
     id: 'catalog',

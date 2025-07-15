@@ -17,6 +17,7 @@ export default function OrdersPage() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [searchValue, setSearchValue] = useState('');
   const [filters, setFilters] = useState<FilterState>({
     tab: 'PENDING'
   });
@@ -37,7 +38,7 @@ export default function OrdersPage() {
     loadOrders();
   }, []);
 
-  // Filter orders based on tab selection
+  // Filter orders based on tab selection and search
   const filteredOrders = useMemo(() => {
     let filtered = orders;
 
@@ -48,8 +49,19 @@ export default function OrdersPage() {
       filtered = filtered.filter(order => order.status === 'CONFIRMED');
     }
 
+    // Apply search filter
+    if (searchValue.trim()) {
+      const searchTerm = searchValue.toLowerCase();
+      filtered = filtered.filter(order =>
+        order.customer.name.toLowerCase().includes(searchTerm) ||
+        order.customer.code.toLowerCase().includes(searchTerm) ||
+        order.id.toLowerCase().includes(searchTerm) ||
+        order.channel.toLowerCase().includes(searchTerm)
+      );
+    }
+
     return filtered;
-  }, [orders, filters.tab]);
+  }, [orders, filters.tab, searchValue]);
 
   // Paginated orders
   const paginatedOrders = useMemo(() => {
@@ -69,11 +81,15 @@ export default function OrdersPage() {
   // Calculate pagination info
   const totalPages = Math.ceil(filteredOrders.length / pageSize);
 
-  // Reset selection and page when filters change
+  // Reset selection and page when filters or search change
   useEffect(() => {
     setRowSelection({});
     setCurrentPage(1);
-  }, [filters.tab]);
+  }, [filters.tab, searchValue]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+  };
 
   // Action handlers
   const handleDelete = (orderIds: string[]) => {
@@ -128,6 +144,8 @@ export default function OrdersPage() {
           <TabFilterBar
             filters={filters}
             onFiltersChange={setFilters}
+            searchValue={searchValue}
+            onSearchChange={handleSearchChange}
           />
           <OrderActionButtons
             selectedOrders={selectedOrders}
