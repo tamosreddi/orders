@@ -1,23 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Order, FilterState } from '../../types/order';
 import { getOrders } from '../../lib/mockOrders';
+import { RowSelectionState } from '@tanstack/react-table';
 
-// Component imports - these will be implemented in subsequent tasks
+// Component imports
 import { OrderTable } from '../../components/OrderTable';
-import { SearchFilterBar } from '../../components/SearchFilterBar';
-import { OrderDrawer } from '../../components/OrderDrawer';
+import { TabFilterBar } from '../../components/TabFilterBar';
+import { OrderActionButtons } from '../../components/OrderActionButtons';
+import { TablePagination } from '../../components/TablePagination';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [filters, setFilters] = useState<FilterState>({
-    search: '',
-    status: 'ALL'
+    tab: 'PENDING'
   });
 
   // Load orders on component mount
@@ -26,7 +27,6 @@ export default function OrdersPage() {
       try {
         const ordersData = await getOrders();
         setOrders(ordersData);
-        setFilteredOrders(ordersData);
       } catch (error) {
         console.error('Failed to load orders:', error);
       } finally {
@@ -37,39 +37,72 @@ export default function OrdersPage() {
     loadOrders();
   }, []);
 
-  // Filter orders based on search and status
-  useEffect(() => {
+  // Filter orders based on tab selection
+  const filteredOrders = useMemo(() => {
     let filtered = orders;
 
-    // Apply search filter
-    if (filters.search) {
-      filtered = filtered.filter(order =>
-        order.customer.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        order.id.toLowerCase().includes(filters.search.toLowerCase())
-      );
+    // Apply tab filter
+    if (filters.tab === 'PENDING') {
+      filtered = filtered.filter(order => order.status === 'PENDING' || order.status === 'REVIEW');
+    } else if (filters.tab === 'ACCEPTED') {
+      filtered = filtered.filter(order => order.status === 'CONFIRMED');
     }
 
-    // Apply status filter
-    if (filters.status !== 'ALL') {
-      filtered = filtered.filter(order => order.status === filters.status);
-    }
+    return filtered;
+  }, [orders, filters.tab]);
 
-    setFilteredOrders(filtered);
-  }, [orders, filters]);
+  // Paginated orders
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredOrders.slice(startIndex, endIndex);
+  }, [filteredOrders, currentPage, pageSize]);
 
-  const handleRowClick = (order: Order) => {
-    setSelectedOrder(order);
-    setIsDrawerOpen(true);
+  // Selected orders for action buttons
+  const selectedOrders = useMemo(() => {
+    return Object.keys(rowSelection)
+      .filter(key => rowSelection[key])
+      .map(index => paginatedOrders[parseInt(index)])
+      .filter(Boolean);
+  }, [rowSelection, paginatedOrders]);
+
+  // Calculate pagination info
+  const totalPages = Math.ceil(filteredOrders.length / pageSize);
+
+  // Reset selection and page when filters change
+  useEffect(() => {
+    setRowSelection({});
+    setCurrentPage(1);
+  }, [filters.tab]);
+
+  // Action handlers
+  const handleDelete = (orderIds: string[]) => {
+    console.log('Deleting orders:', orderIds);
+    // TODO: Implement delete functionality
+    setRowSelection({});
   };
 
-  const handleCloseDrawer = () => {
-    setIsDrawerOpen(false);
-    setSelectedOrder(null);
+  const handleUpload = (orderIds: string[]) => {
+    console.log('Uploading orders:', orderIds);
+    // TODO: Implement upload functionality
+    setRowSelection({});
   };
 
-  const handleBulkConfirm = (selectedOrderIds: string[]) => {
-    console.log('Bulk confirming orders:', selectedOrderIds);
-    // TODO: Implement actual bulk confirmation with Supabase
+  const handleConfirm = (orderIds: string[]) => {
+    console.log('Confirming orders:', orderIds);
+    // TODO: Implement confirm functionality with Supabase
+    setRowSelection({});
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setRowSelection({}); // Reset selection when changing pages
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1);
+    setRowSelection({});
   };
 
   if (loading) {
@@ -90,29 +123,38 @@ export default function OrdersPage() {
           </h1>
         </div>
 
-        {/* Search and Filter Bar */}
-        <div className="mb-6">
-          <SearchFilterBar
+        {/* Tab Filter Bar and Action Buttons */}
+        <div className="mb-6 flex items-start justify-between">
+          <TabFilterBar
             filters={filters}
             onFiltersChange={setFilters}
+          />
+          <OrderActionButtons
+            selectedOrders={selectedOrders}
+            onDelete={handleDelete}
+            onUpload={handleUpload}
+            onConfirm={handleConfirm}
           />
         </div>
 
         {/* Orders Table */}
         <div className="bg-surface-0 rounded-lg shadow-card">
           <OrderTable
-            orders={filteredOrders}
-            onRowClick={handleRowClick}
-            onBulkConfirm={handleBulkConfirm}
+            orders={paginatedOrders}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+          />
+
+          {/* Table Pagination */}
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredOrders.length}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
           />
         </div>
-
-        {/* Order Drawer */}
-        <OrderDrawer
-          order={selectedOrder}
-          isOpen={isDrawerOpen}
-          onClose={handleCloseDrawer}
-        />
       </div>
     </div>
   );

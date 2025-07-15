@@ -10,17 +10,13 @@ interface SearchFilterBarProps {
 
 export function SearchFilterBar({ filters, onFiltersChange }: SearchFilterBarProps) {
   const handleSearchChange = (value: string) => {
-    onFiltersChange({
-      ...filters,
-      search: value,
-    });
+    // Legacy component - functionality moved to TabFilterBar
+    console.log('Search functionality moved to TabFilterBar');
   };
 
-  const handleStatusChange = (status: FilterState['status']) => {
-    onFiltersChange({
-      ...filters,
-      status,
-    });
+  const handleStatusChange = (status: any) => {
+    // Legacy component - functionality moved to TabFilterBar  
+    console.log('Status filtering moved to TabFilterBar');
   };
 
   const statusTabs = [
@@ -38,17 +34,18 @@ export function SearchFilterBar({ filters, onFiltersChange }: SearchFilterBarPro
         </div>
         <input
           type="text"
-          placeholder="Search..."
-          value={filters.search}
+          placeholder="Search... (Legacy component - use TabFilterBar)"
+          value=""
           onChange={(e) => handleSearchChange(e.target.value)}
           className="block w-full pl-10 pr-4 py-3 border border-surface-border rounded-md bg-surface-0 text-text-default placeholder-text-muted focus:ring-2 focus:ring-brand-navy-900 focus:border-brand-navy-900 transition-all duration-fast"
+          disabled
         />
       </div>
 
       {/* Status Filter Tabs */}
       <div className="flex space-x-1 bg-surface-alt p-1 rounded-md">
         {statusTabs.map((tab) => {
-          const isActive = filters.status === tab.key;
+          const isActive = false; // Legacy component
           return (
             <button
               key={tab.key}
@@ -58,6 +55,7 @@ export function SearchFilterBar({ filters, onFiltersChange }: SearchFilterBarPro
                   ? 'bg-surface-0 text-text-default shadow-xs'
                   : 'text-text-muted hover:text-text-default hover:bg-surface-0/50'
               }`}
+              disabled
             >
               {tab.label}
             </button>

@@ -48,7 +48,7 @@ export function NavigationItem({ item, isCollapsed, isMobile = false }: Navigati
     <>
       <IconComponent size={24} className="flex-shrink-0" />
       {(!isCollapsed || isMobile) && (
-        <span className="font-medium text-sm">{item.label}</span>
+        <span className="font-light text-base">{item.label}</span>
       )}
     </>
   );

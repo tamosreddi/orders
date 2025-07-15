@@ -82,9 +82,9 @@ export function OrderDrawer({ order, isOpen, onClose }: OrderDrawerProps) {
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-caption text-text-muted">Order Date</span>
+                  <span className="text-caption text-text-muted">Received Date</span>
                   <span className="text-body text-text-default">
-                    {new Date(order.orderDate).toLocaleDateString('en-US', {
+                    {new Date(order.receivedDate).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'

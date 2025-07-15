@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   useReactTable,
   createColumnHelper,
@@ -10,6 +11,7 @@ import {
   flexRender,
   RowSelectionState,
   SortingState,
+  OnChangeFn,
 } from '@tanstack/react-table';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { Order } from '../types/order';
@@ -17,16 +19,20 @@ import { OrderStatusBadge } from './OrderStatusBadge';
 
 interface OrderTableProps {
   orders: Order[];
-  onRowClick: (order: Order) => void;
-  onBulkConfirm: (selectedOrderIds: string[]) => void;
+  rowSelection: RowSelectionState;
+  onRowSelectionChange: OnChangeFn<RowSelectionState>;
 }
 
-export function OrderTable({ orders, onRowClick, onBulkConfirm }: OrderTableProps) {
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+export function OrderTable({ orders, rowSelection, onRowSelectionChange }: OrderTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const router = useRouter();
 
   // Stable reference to prevent re-renders
   const data = useMemo(() => orders, [orders]);
+
+  const handleRowClick = (orderId: string) => {
+    router.push(`/orders/${orderId}/review`);
+  };
 
   const columnHelper = createColumnHelper<Order>();
 
@@ -37,7 +43,7 @@ export function OrderTable({ orders, onRowClick, onBulkConfirm }: OrderTableProp
       header: ({ table }) => (
         <input
           type="checkbox"
-          className="rounded border-surface-border text-brand-navy-900 focus:ring-brand-navy-900"
+          className="rounded border-gray-300 text-brand-navy-900 focus:ring-brand-navy-900"
           checked={table.getIsAllRowsSelected()}
           onChange={table.getToggleAllRowsSelectedHandler()}
           aria-label="Select all orders"
@@ -46,7 +52,7 @@ export function OrderTable({ orders, onRowClick, onBulkConfirm }: OrderTableProp
       cell: ({ row }) => (
         <input
           type="checkbox"
-          className="rounded border-surface-border text-brand-navy-900 focus:ring-brand-navy-900"
+          className="rounded border-gray-300 text-brand-navy-900 focus:ring-brand-navy-900"
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
           aria-label={`Select order ${row.original.id}`}
@@ -55,7 +61,7 @@ export function OrderTable({ orders, onRowClick, onBulkConfirm }: OrderTableProp
       enableSorting: false,
     }),
 
-    // Customer column with avatar
+    // Customer column with code and name
     columnHelper.accessor('customer', {
       header: 'Customer',
       cell: (info) => {
@@ -69,7 +75,10 @@ export function OrderTable({ orders, onRowClick, onBulkConfirm }: OrderTableProp
               height={32}
               className="rounded-full"
             />
-            <span className="text-text-default">{customer.name}</span>
+            <div className="flex flex-col">
+              <span className="text-xs text-text-muted">{customer.code}</span>
+              <span className="text-sm text-text-default font-medium">{customer.name}</span>
+            </div>
           </div>
         );
       },
@@ -77,47 +86,59 @@ export function OrderTable({ orders, onRowClick, onBulkConfirm }: OrderTableProp
         rowA.original.customer.name.localeCompare(rowB.original.customer.name),
     }),
 
-    // Channel column
-    columnHelper.accessor('channel', {
-      header: 'Channel',
+    // Received column with date and time
+    columnHelper.accessor('receivedDate', {
+      header: 'Received',
       cell: (info) => {
-        const channel = info.getValue();
+        const order = info.row.original;
+        const date = new Date(info.getValue());
         return (
-          <span className="text-caption text-text-muted uppercase">
-            {channel}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-sm text-text-default">
+              {date.toLocaleDateString('en-US', { 
+                day: 'numeric',
+                month: 'short'
+              })}
+            </span>
+            <span className="text-xs text-text-muted">{order.receivedTime}</span>
+          </div>
         );
       },
+      sortingFn: (rowA, rowB) =>
+        new Date(rowA.original.receivedDate).getTime() - new Date(rowB.original.receivedDate).getTime(),
     }),
 
-    // Order Date column
-    columnHelper.accessor('orderDate', {
-      header: 'Order Date',
+    // Delivery Date column
+    columnHelper.accessor('deliveryDate', {
+      header: 'Delivery date',
       cell: (info) => {
         const date = new Date(info.getValue());
         return (
-          <span className="text-text-default">
+          <span className="text-sm text-text-default">
             {date.toLocaleDateString('en-US', { 
-              month: 'short', 
-              day: 'numeric', 
-              year: 'numeric' 
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric'
             })}
           </span>
         );
       },
+      sortingFn: (rowA, rowB) =>
+        new Date(rowA.original.deliveryDate).getTime() - new Date(rowB.original.deliveryDate).getTime(),
     }),
 
-    // Products column
+    // Products ordered column
     columnHelper.accessor('products', {
-      header: 'Products',
+      header: 'Products ordered',
       cell: (info) => (
-        <span className="text-text-default">{info.getValue()}</span>
+        <span className="text-sm text-text-default text-center">{info.getValue()}</span>
       ),
     }),
 
-    // Order Status column
+    // Status column
     columnHelper.accessor('status', {
-      header: 'Order Status',
+      header: 'Status',
       cell: (info) => <OrderStatusBadge status={info.getValue()} />,
       enableSorting: false,
     }),
@@ -133,118 +154,91 @@ export function OrderTable({ orders, onRowClick, onBulkConfirm }: OrderTableProp
       rowSelection,
       sorting,
     },
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange,
     onSortingChange: setSorting,
   });
 
-  const selectedOrderIds = Object.keys(rowSelection).filter(key => rowSelection[key])
-    .map(index => orders[parseInt(index)]?.id).filter(Boolean);
-
-  const handleBulkConfirm = () => {
-    if (selectedOrderIds.length > 0) {
-      onBulkConfirm(selectedOrderIds);
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      {/* Bulk Actions Bar */}
-      {selectedOrderIds.length > 0 && (
-        <div className="flex items-center justify-between p-4 bg-brand-navy-50 rounded-md">
-          <span className="text-body text-text-default">
-            {selectedOrderIds.length} order{selectedOrderIds.length !== 1 ? 's' : ''} selected
-          </span>
-          <button
-            onClick={handleBulkConfirm}
-            className="px-4 py-2 bg-state-success text-white rounded-md hover:opacity-90 transition-opacity duration-fast"
-          >
-            Confirm Orders
-          </button>
+    <div className="overflow-x-auto lg:overflow-x-visible">
+      <table className="min-w-full divide-y divide-gray-200">
+        {/* Table Header */}
+        <thead className="bg-gray-50">
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <th
+                  key={header.id}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  {header.isPlaceholder ? null : (
+                    <div
+                      className={`flex items-center space-x-1 ${
+                        header.column.getCanSort() ? 'cursor-pointer select-none' : ''
+                      }`}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      <span>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </span>
+                      {header.column.getCanSort() && (
+                        <div className="flex flex-col">
+                          <ChevronUp
+                            className={`h-3 w-3 ${
+                              header.column.getIsSorted() === 'asc'
+                                ? 'text-gray-900'
+                                : 'text-gray-300'
+                            }`}
+                          />
+                          <ChevronDown
+                            className={`h-3 w-3 -mt-1 ${
+                              header.column.getIsSorted() === 'desc'
+                                ? 'text-gray-900'
+                                : 'text-gray-300'
+                            }`}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+
+        {/* Table Body */}
+        <tbody className="bg-white divide-y divide-gray-200">
+          {table.getRowModel().rows.map((row) => (
+            <tr
+              key={row.id}
+              className="hover:bg-gray-50 transition-colors duration-fast cursor-pointer"
+              onClick={() => handleRowClick(row.original.id)}
+            >
+              {row.getVisibleCells().map((cell) => (
+                <td
+                  key={cell.id}
+                  className="px-6 py-4 whitespace-nowrap"
+                  onClick={(e) => {
+                    // Prevent row click when clicking checkbox
+                    if (cell.column.id === 'select') {
+                      e.stopPropagation();
+                    }
+                  }}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Empty State */}
+      {orders.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-text-muted">No orders found</p>
         </div>
       )}
-
-      {/* Table Container */}
-      <div className="overflow-x-auto lg:overflow-x-visible">
-        <table className="min-w-full divide-y divide-surface-border">
-          {/* Table Header */}
-          <thead className="bg-surface-alt">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="px-4 py-3 text-left text-caption font-medium text-text-muted uppercase tracking-wider"
-                  >
-                    {header.isPlaceholder ? null : (
-                      <div
-                        className={`flex items-center space-x-2 ${
-                          header.column.getCanSort() ? 'cursor-pointer select-none' : ''
-                        }`}
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        <span>
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                        </span>
-                        {header.column.getCanSort() && (
-                          <div className="flex flex-col">
-                            <ChevronUp
-                              className={`h-3 w-3 ${
-                                header.column.getIsSorted() === 'asc'
-                                  ? 'text-brand-navy-900'
-                                  : 'text-text-muted'
-                              }`}
-                            />
-                            <ChevronDown
-                              className={`h-3 w-3 -mt-1 ${
-                                header.column.getIsSorted() === 'desc'
-                                  ? 'text-brand-navy-900'
-                                  : 'text-text-muted'
-                              }`}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-
-          {/* Table Body */}
-          <tbody className="bg-surface-0 divide-y divide-surface-border">
-            {table.getRowModel().rows.map((row) => (
-              <tr
-                key={row.id}
-                className="hover:bg-surface-alt cursor-pointer transition-colors duration-fast"
-                onClick={() => onRowClick(row.original)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className="px-4 py-4 whitespace-nowrap"
-                    onClick={(e) => {
-                      // Prevent row click when clicking checkbox
-                      if (cell.column.id === 'select') {
-                        e.stopPropagation();
-                      }
-                    }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Empty State */}
-        {orders.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-text-muted">No orders found</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
