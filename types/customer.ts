@@ -7,7 +7,8 @@ export interface CustomerLabel {
 
 export interface Customer {
   id: string;
-  name: string;
+  name: string; // Business name
+  customerName?: string; // Person responsible for the business
   avatar: string;
   code: string;
   labels: CustomerLabel[];

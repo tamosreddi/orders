@@ -1,8 +1,10 @@
+//used in Customers page to filter the customers
+
 'use client';
 
 import React, { useState } from 'react';
 import { X, Calendar } from 'lucide-react';
-import { CustomerStatus, CustomerFilterState, PREDEFINED_LABELS } from '../types/customer';
+import { CustomerStatus, CustomerFilterState, PREDEFINED_LABELS } from '../../types/customer';
 
 interface CustomerFilterPopupProps {
   isOpen: boolean;

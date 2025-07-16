@@ -37,8 +37,8 @@ export function NavigationItem({ item, isCollapsed, isMobile = false }: Navigati
   `;
   
   const activeClasses = item.isActive 
-    ? 'bg-white bg-opacity-10 text-white' 
-    : 'text-white text-opacity-85 hover:text-white hover:bg-white hover:bg-opacity-5';
+    ? 'bg-white bg-opacity-15 text-white shadow-sm' 
+    : 'text-white text-opacity-70 hover:text-white hover:bg-white hover:bg-opacity-10';
     
   const disabledClasses = item.isDisabled 
     ? 'opacity-50 cursor-not-allowed' 

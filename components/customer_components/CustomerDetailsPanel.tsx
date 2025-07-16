@@ -1,10 +1,12 @@
+//used in Customers page to display the customer details when users click on a row
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
-import { Customer, CustomerLabel, PREDEFINED_LABELS } from '../types/customer';
+import { Customer, CustomerLabel, PREDEFINED_LABELS } from '../../types/customer';
 import { CustomerStatusBadge } from './CustomerStatusBadge';
 
 interface CustomerDetailsPanelProps {
@@ -101,10 +103,10 @@ export function CustomerDetailsPanel({
       />
       
       {/* Panel */}
-      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-surface-0 shadow-modal transform transition-transform duration-medium">
+      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-surface-0 shadow-modal transform transition-transform duration-medium flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-surface-border">
-          <h2 className="text-body-lg font-semibold text-text-default">
+          <h2 className="text-2xl font-semibold text-text-default">
             Customer Details
           </h2>
           <button
@@ -117,7 +119,8 @@ export function CustomerDetailsPanel({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 overflow-y-auto h-full">
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6 space-y-6">
           {/* Customer Summary */}
           <div className="space-y-4">
             <div>
@@ -153,6 +156,13 @@ export function CustomerDetailsPanel({
               Customer Information
             </h3>
             <div className="space-y-3">
+              {customer.customerName && (
+                <div className="flex justify-between items-center">
+                  <span className="text-caption text-text-muted">Customer Name</span>
+                  <span className="text-body text-text-default">{customer.customerName}</span>
+                </div>
+              )}
+
               <div className="flex justify-between items-center">
                 <span className="text-caption text-text-muted">Status</span>
                 <CustomerStatusBadge status={customer.status} />
@@ -285,6 +295,7 @@ export function CustomerDetailsPanel({
                 View Order History
               </button>
             </div>
+          </div>
           </div>
         </div>
       </div>

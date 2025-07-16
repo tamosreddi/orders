@@ -5,7 +5,7 @@ import { Order, OrderDetails, OrderProduct } from '../types/order';
 // TODO: Add proper error handling and loading states
 
 const customerNames = [
-  'James Smith', 'Maria Garcia', 'David Johnson', 'Jennifer Brown', 'Michael Davis',
+  'Restaurant One', 'Maria Garcia', 'David Johnson', 'Jennifer Brown', 'Michael Davis',
   'Sarah Wilson', 'Christopher Moore', 'Jessica Taylor', 'Matthew Anderson', 'Ashley Thomas',
   'Joshua Jackson', 'Amanda White', 'Daniel Harris', 'Stephanie Martin', 'Andrew Thompson',
   'Melissa Garcia', 'Kenneth Johnson', 'Deborah Martinez', 'Paul Robinson', 'Sharon Clark',
@@ -24,7 +24,7 @@ const generateAvatar = (name: string): string => {
 };
 
 const generateCustomerCode = (index: number): string => {
-  return String(10000 + index * 37 + Math.floor(Math.random() * 100)).substring(0, 5);
+  return String(60000 + index * 47 + Math.floor(Math.random() * 100)).substring(0, 5);
 };
 
 const getRandomReceivedDate = (): string => {

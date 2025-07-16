@@ -1,12 +1,15 @@
+//used in Customers page to filter the customers as Pending or Active
+
 'use client';
 
 import { ChevronDown, Filter, Search, Plus } from 'lucide-react';
-import { CustomerFilterState } from '../types/customer';
+import { CustomerFilterState } from '../../types/customer';
 
 interface CustomerTabFilterBarProps {
   filters: CustomerFilterState;
   onFiltersChange: (filters: CustomerFilterState) => void;
   onFilterPopupOpen: () => void;
+  onInviteCustomer: () => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
 }
@@ -15,6 +18,7 @@ export function CustomerTabFilterBar({
   filters, 
   onFiltersChange, 
   onFilterPopupOpen,
+  onInviteCustomer,
   searchValue,
   onSearchChange 
 }: CustomerTabFilterBarProps) {
@@ -58,7 +62,7 @@ export function CustomerTabFilterBar({
         </div>
 
         {/* Search Bar */}
-        <div className="relative mr-3">
+        <div className="relative mr-2">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <input
             type="text"
@@ -83,8 +87,8 @@ export function CustomerTabFilterBar({
         
         {/* Invite New Customer Button */}
         <button
-          disabled
-          className="flex items-center space-x-2 px-4 py-2 bg-state-success text-white rounded-md text-sm font-medium hover:opacity-90 transition-opacity duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={onInviteCustomer}
+          className="flex items-center space-x-2 px-4 py-2 bg-state-success text-white rounded-md text-sm font-medium hover:opacity-90 transition-opacity duration-fast"
         >
           <Plus className="h-4 w-4" />
           <span>INVITE NEW CUSTOMER</span>

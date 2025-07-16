@@ -1,5 +1,7 @@
+//used in Customers page, in the table,  to display the customer status
+
 import React from 'react';
-import { CustomerStatus } from '../types/customer';
+import { CustomerStatus } from '../../types/customer';
 
 interface CustomerStatusBadgeProps {
   status: CustomerStatus;

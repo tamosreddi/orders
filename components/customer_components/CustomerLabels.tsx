@@ -1,5 +1,7 @@
+//used in Customers page to display the customer labels
+
 import React from 'react';
-import { CustomerLabel } from '../types/customer';
+import { CustomerLabel } from '../../types/customer';
 
 interface CustomerLabelsProps {
   labels: CustomerLabel[];
@@ -19,15 +21,10 @@ export function CustomerLabels({ labels, maxDisplay = 2 }: CustomerLabelsProps) 
       {displayLabels.map((label) => (
         <div
           key={label.id}
-          className="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
+          className="inline-flex items-center px-2 py-1 rounded text-sm font-normal"
           style={{ backgroundColor: label.color }}
         >
           {label.name}
-          {label.value && (
-            <span className="ml-1 text-xs opacity-75">
-              {label.value}
-            </span>
-          )}
         </div>
       ))}
       {remainingCount > 0 && (

@@ -1,3 +1,5 @@
+//used in Customers page to display the customers in a table
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -13,7 +15,7 @@ import {
   OnChangeFn,
 } from '@tanstack/react-table';
 import { ChevronUp, ChevronDown, MessageCircle } from 'lucide-react';
-import { Customer } from '../types/customer';
+import { Customer } from '../../types/customer';
 import { CustomerStatusBadge } from './CustomerStatusBadge';
 import { CustomerLabels } from './CustomerLabels';
 
@@ -69,22 +71,16 @@ export function CustomerTable({
         const customer = info.row.original;
         return (
           <div className="flex items-center space-x-3">
-            <div className="relative">
-              <Image
-                src={customer.avatar}
-                alt={customer.name}
-                width={32}
-                height={32}
-                className="rounded-full"
-              />
-              {/* Customer code badge */}
-              <div className="absolute -top-1 -right-1 bg-white border border-gray-200 rounded px-1 text-xs font-medium text-gray-600">
-                {customer.code}
-              </div>
-            </div>
+            <Image
+              src={customer.avatar}
+              alt={customer.name}
+              width={32}
+              height={32}
+              className="rounded-full"
+            />
             <div className="flex flex-col">
+              <span className="text-xs text-text-muted">{customer.code}</span>
               <span className="text-sm text-text-default font-medium">{customer.name}</span>
-              <span className="text-xs text-text-muted">{customer.email}</span>
             </div>
           </div>
         );

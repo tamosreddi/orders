@@ -1,3 +1,5 @@
+//used in Orders Review page to display the products in a table, editable
+
 'use client';
 
 import React, { useState } from 'react';
@@ -94,7 +96,7 @@ export function EditableProductsTable({ products, onProductsChange }: EditablePr
     <div className="space-y-4">
       <div className="overflow-x-auto">
         <table className="w-full border border-gray-200 rounded-lg">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-b">
                 Producto

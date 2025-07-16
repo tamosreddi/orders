@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Customer, CustomerFilterState } from '../../types/customer';
-import { getCustomers, updateCustomer } from '../../lib/mockCustomers';
+import { getCustomers, updateCustomer, createCustomer, CreateCustomerData } from '../../lib/mockCustomers';
 import { RowSelectionState } from '@tanstack/react-table';
 
 // Component imports
-import { CustomerTable } from '../../components/CustomerTable';
-import { CustomerTabFilterBar } from '../../components/CustomerTabFilterBar';
-import { CustomerFilterPopup } from '../../components/CustomerFilterPopup';
-import { CustomerDetailsPanel } from '../../components/CustomerDetailsPanel';
+import { CustomerTable } from '../../components/customer_components/CustomerTable';
+import { CustomerTabFilterBar } from '../../components/customer_components/CustomerTabFilterBar';
+import { CustomerFilterPopup } from '../../components/customer_components/CustomerFilterPopup';
+import { CustomerDetailsPanel } from '../../components/customer_components/CustomerDetailsPanel';
+import { InviteCustomerPanel } from '../../components/customer_components/InviteCustomerPanel';
 import { TablePagination } from '../../components/TablePagination';
 
 export default function CustomersPage() {
@@ -20,6 +21,7 @@ export default function CustomersPage() {
   const [pageSize, setPageSize] = useState(15);
   const [searchValue, setSearchValue] = useState('');
   const [isFilterPopupOpen, setIsFilterPopupOpen] = useState(false);
+  const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [filters, setFilters] = useState<CustomerFilterState>({
     tab: 'ACTIVE',
@@ -127,6 +129,38 @@ export default function CustomersPage() {
     setCurrentPage(1); // Reset to first page when search changes
   };
 
+  const handleInviteCustomer = async (customerData: CreateCustomerData) => {
+    try {
+      const newCustomer = await createCustomer(customerData, true); // Send invite
+      setCustomers([...customers, newCustomer]);
+      
+      // Switch to Pending tab to show the new customer
+      setFilters(prev => ({ ...prev, tab: 'PENDING' }));
+      setCurrentPage(1);
+      
+      setIsInvitePanelOpen(false);
+    } catch (error) {
+      console.error('Failed to invite customer:', error);
+      throw error;
+    }
+  };
+
+  const handleSaveCustomer = async (customerData: CreateCustomerData) => {
+    try {
+      const newCustomer = await createCustomer(customerData, false); // Don't send invite
+      setCustomers([...customers, newCustomer]);
+      
+      // Switch to Active tab to show the saved customer
+      setFilters(prev => ({ ...prev, tab: 'ACTIVE' }));
+      setCurrentPage(1);
+      
+      setIsInvitePanelOpen(false);
+    } catch (error) {
+      console.error('Failed to save customer:', error);
+      throw error;
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -146,18 +180,15 @@ export default function CustomersPage() {
         </div>
 
         {/* Tab Filter Bar and Action Buttons */}
-        <div className="mb-6 flex items-start justify-between">
+        <div className="mb-6">
           <CustomerTabFilterBar
             filters={filters}
             onFiltersChange={handleFiltersChange}
             onFilterPopupOpen={() => setIsFilterPopupOpen(true)}
+            onInviteCustomer={() => setIsInvitePanelOpen(true)}
             searchValue={searchValue}
             onSearchChange={handleSearchChange}
           />
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <span>Customers synced</span>
-          </div>
         </div>
 
         {/* Customers Table */}
@@ -195,6 +226,14 @@ export default function CustomersPage() {
         isOpen={!!selectedCustomer}
         onClose={() => setSelectedCustomer(null)}
         onCustomerUpdate={handleCustomerUpdate}
+      />
+
+      {/* Invite Customer Panel */}
+      <InviteCustomerPanel
+        isOpen={isInvitePanelOpen}
+        onClose={() => setIsInvitePanelOpen(false)}
+        onInviteCustomer={handleInviteCustomer}
+        onSaveCustomer={handleSaveCustomer}
       />
     </div>
   );

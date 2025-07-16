@@ -1,11 +1,12 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { NavigationSidebar } from './NavigationSidebar';
 import { MobileNavigation } from './MobileNavigation';
 import { useNavigation } from './NavigationContext';
 import { NavigationItem } from './types';
 
-const navigationItems: NavigationItem[] = [
+const baseNavigationItems: NavigationItem[] = [
   {
     id: 'messages',
     label: 'Messages',
@@ -24,8 +25,7 @@ const navigationItems: NavigationItem[] = [
     id: 'orders',
     label: 'Orders',
     href: '/orders',
-    icon: 'ShoppingCart',
-    isActive: true
+    icon: 'ShoppingCart'
   },
   {
     id: 'customers',
@@ -58,6 +58,13 @@ const navigationItems: NavigationItem[] = [
 
 export function NavigationMenu() {
   const { navigationState, toggleCollapsed, toggleMobileMenu, closeMobileMenu } = useNavigation();
+  const pathname = usePathname();
+
+  // Create navigation items with dynamic active state based on current route
+  const navigationItems = baseNavigationItems.map(item => ({
+    ...item,
+    isActive: pathname.startsWith(item.href) && item.href !== '/'
+  }));
 
   return (
     <>
