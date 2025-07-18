@@ -1,95 +1,112 @@
-# INITIAL.md – Orders Page v0 (Reddi)
+# INITIAL.md – Messages Page with AI Agent Integration
 
 <!--
-This file kicks off the first feature slice for the Reddi frontend.
-Only ONE screen (Orders) will be built in this PR.
+This file defines the Messages/Chats feature for the Reddi platform.
+The Messages page enables seamless communication between distributors and customers with AI-powered assistance.
 -->
 
 ## Feature
 
-**Orders Dashboard**
+**AI-Powered Messages Dashboard**
 
-Build the **Orders** page that lists all orders for a distributor, praticularily, this is the seller dashboard.
+Build a comprehensive **Messages** page that centralizes all customer communications across channels (WhatsApp, SMS, Email) with integrated AI agent capabilities powered by OpenAI API. The goal is to capture every order, everywhere.
 
 User goals:
 
-1. **Overview** – View a sortable, filterable table of recent orders.
-2. **Inspect** – Click a row to open a side-panel with line-items (stub for now).
-3. **Bulk confirm** – Select one or more orders and hit *Confirm Orders* (just `console.log`).
+1. **Unified Communication Hub** – View all customer conversations in a single interface, organized by customer and channel
+2. **AI Assistant Integration** – Leverage OpenAI API to provide intelligent message suggestions, automated responses, and order processing assistance
+3. **Contextual Order Management** – Seamlessly transition from messages to order creation/confirmation without leaving the conversation context
+4. **Real-time Message Handling** – Process incoming messages with AI-powered categorization and suggested responses
 
-### Functional spec
+### Functional Spec
 
-| Element                    | Details                                                                   |
-|----------------------------|---------------------------------------------------------------------------|
-| Table columns              | *Order #, Customer avatar + name, Channel, Order Date, Sort By, Products, Order Status* |
-| Search + status filter bar | Search input (`placeholder="Search..."`) & Tabs (`Pending Review`, `Accepted`) |
-| Row selection              | Checkbox far left; master checkbox in header                              |
-| Order status badge         | Dot + text (green “Confirmed”) – use `state-success` token                |
-| Pagination                 | Not required – show first 50 mocked rows                                  |
-| Side-panel modal           | Create component `<OrderDrawer />` but keep placeholder content           |
-| Responsiveness             | Table becomes horizontally scrollable below `lg` breakpoint               |
+| Element | Details |
+|---------|---------|
+| **Chat List Panel** | Left sidebar showing all active conversations with customer avatars, last message preview, unread counts, and channel indicators |
+| **Message Thread View** | Central area displaying selected conversation with message history, timestamps, and delivery status |
+| **AI Assistant Panel** | Right sidebar with OpenAI-powered features: message suggestions, order processing, customer insights |
+| **Message Input Area** | Rich text input with file attachments, AI suggestion integration, and send options |
+| **Channel Integration** | Native support for WhatsApp, SMS, and Email with channel-specific message formatting |
+| **Order Context Cards** | Inline order summaries and quick actions when orders are referenced in messages |
 
-### Visual spec
+### Visual Spec
 
-* Pixel-match **orders_design_1.png** + **orders_design_2.png** stored at  
-  `design/references/`.
-* Palette, spacing, radii, shadows, etc. defined in **design/tokens.md**.
+* **Design Continuity**: Pixel-match the existing Orders and Customers pages design system
+* **Chat Interface**: Inspired by `/design/references/messages_page.png`
+* **Color Scheme**: Consistent with current platform using `design/tokens.md` palette
+* **Layout**: Three-column layout (Chat List | Message Thread | AI Assistant) with responsive collapse on mobile
 
-## Examples (folder)
-## Documentation (RAG Sources)
+## Examples
 
-1. **Next.js 14 App Router** – <https://nextjs.org/docs/app>
-2. **Tailwind CSS** – <https://tailwindcss.com/docs>
-3. **TanStack Table v8** – <https://tanstack.com/table/v8>
-4. **Lucide Icons** – <https://lucide.dev>
-5. **design/tokens.md** – authoritative design tokens for Reddi  
-6. **design/references/** – pixel reference PNGs
+Reference existing implementation patterns:
+- `/app/orders/page.tsx` - Table structure, pagination, and filtering patterns
+- `/app/customers/page.tsx` - Customer data handling and panel interactions
+- `/components/` - Reusable UI components and styling conventions
+- `/agent-platform/` - Pydantic AI agent patterns with MCP integration
 
-## Other Considerations / Gotchas
+## Documentation
 
-- **Data layer → dummy only**  
-  - Crea `/lib/mockOrders.ts` que exporte `const orders: Order[] = […]`.
+**Project Documentation:**
+- `/documentation/technical-spec.md` – Detailed AI architecture, database schema, and Pydantic AI implementation
+- `/documentation/setup-guide.md` – Complete environment setup, dependencies, and development workflow
+- `/documentation/security-guide.md` – Multi-tenant security, PII protection, and compliance guidelines
 
-- **Type safety**  
-  - Define `/types/order.ts` con la interfaz:  
-    ```ts
-    export interface Order {
-      id: string;
-      customer: { name: string; avatar: string };
-      channel: 'WHATSAPP' | 'SMS' | 'EMAIL';
-      orderDate: string;      // ISO
-      products: number;       // total items
-      status: 'CONFIRMED' | 'PENDING';
-    }
-    ```
+**External References:**
+1. **Next.js 14 App Router** – https://nextjs.org/docs/app
+2. **Tailwind CSS** – https://tailwindcss.com/docs  
+3. **Pydantic AI** – https://ai.pydantic.dev/
+4. **OpenAI API** – https://platform.openai.com/docs/api-reference
+5. **design/tokens.md** – Existing design system tokens
+6. **Lucide Icons** – https://lucide.dev
 
-- **Folder structure (obligatorio)**  
-/app/orders/page.tsx
-/components/OrderTable.tsx
-/components/OrderStatusBadge.tsx
-/components/OrderDrawer.tsx (placeholder)
-/lib/mockOrders.ts
-/types/order.ts
+## Other Considerations
 
-- **Styling → solo Tailwind**  
-- Agrega los tokens de `design/tokens.md` a `tailwind.config.js`.  
-- Prohibido usar estilos inline o CSS modules.
+- **AI Architecture**: Use existing `agent-platform/` framework with Pydantic AI agents and MCP tools
+- **Database**: Multi-tenant Supabase database already created with 16 tables for AI-powered operations
+- **Security**: All data isolated by `distributor_id` with Row Level Security (RLS) policies
+- **Real-time**: WebSocket integration for live message updates and typing indicators
+- **File Structure**: Follow established patterns with `/app/messages/`, `/backend/agents/`, and MCP integration
 
-- **Accesibilidad**  
-- Checkboxes con `aria-label`.  
-- Filas deben ser focus-able (`tabIndex={0}`).
+**Required File Structure:**
+```
+/app/messages/page.tsx
+/app/messages/components/ChatList.tsx
+/app/messages/components/MessageThread.tsx
+/app/messages/components/AIAssistantPanel.tsx
+/backend/agents/message_analysis.py
+/backend/agents/order_processing.py
+/backend/agents/customer_support.py
+```
 
-- **Future hooks**  
-- Coloca comentarios `// TODO Supabase` y `// TODO ERP` donde apliquen; no implementes integración real.
-
-- **Lint / Format**  
-- Usa la configuración ESLint + Prettier generada por `create-next-app`.
-
+**Type Safety:**
+```ts
+interface Message {
+  id: string;
+  conversationId: string;
+  content: string;
+  isFromCustomer: boolean;
+  messageType: 'TEXT' | 'IMAGE' | 'AUDIO' | 'ORDER_CONTEXT';
+  aiProcessed: boolean;
+  aiConfidence?: number;
+  createdAt: string;
+}
+```
 
 *Commit message suggestion*:  
-`feat: Orders dashboard v0 with mock data & design tokens`
+`feat: Messages page with Pydantic AI agents, multi-tenant database, and MCP integration`
 
-## Setup prerequisite
-If the project is empty, run:
-`npx create-next-app@latest . --ts --tailwind --app --eslint`
-and then `pnpm add @tanstack/react-table lucide-react clsx`.
+## Setup Prerequisites
+
+**Frontend Dependencies:**
+```bash
+npm install @supabase/supabase-js socket.io-client @tanstack/react-query
+```
+
+**Backend Dependencies:**
+```bash
+pip install fastapi pydantic-ai openai supabase
+```
+
+**MCP Configuration:**
+- Use existing `/agent-platform/mcp_config.json` (Supabase + Context7)
+- Database tables already created via `/supabase/migrations/`

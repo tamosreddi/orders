@@ -12,7 +12,7 @@ const baseNavigationItems: NavigationItem[] = [
     label: 'Messages',
     href: '/messages',
     icon: 'MessageCircle',
-    isDisabled: true
+    isDisabled: false
   },
   {
     id: 'marketing',
