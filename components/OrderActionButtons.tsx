@@ -66,7 +66,7 @@ export function OrderActionButtons({
         `}
       >
         <Check size={16} className="inline mr-2" />
-        Confirm Order
+        Confirmar orden
       </button>
     </div>
   );

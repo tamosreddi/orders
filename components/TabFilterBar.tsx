@@ -19,8 +19,8 @@ export function TabFilterBar({ filters, onFiltersChange, searchValue, onSearchCh
   };
 
   const tabs = [
-    { key: 'PENDING' as const, label: 'Pending' },
-    { key: 'ACCEPTED' as const, label: 'Accepted' },
+    { key: 'PENDING' as const, label: 'Pendientes' },
+    { key: 'ACCEPTED' as const, label: 'Aceptadas' },
   ];
 
   return (
@@ -55,7 +55,7 @@ export function TabFilterBar({ filters, onFiltersChange, searchValue, onSearchCh
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <input
             type="text"
-            placeholder="Search orders..."
+            placeholder="Buscando órdenes..."
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-navy-500 focus:border-transparent w-64 transition-all duration-fast"
@@ -67,13 +67,13 @@ export function TabFilterBar({ filters, onFiltersChange, searchValue, onSearchCh
       <div className="flex items-center space-x-3">
         <button className="flex items-center gap-2 px-3 py-2 text-sm text-text-muted border border-gray-300 rounded-md hover:text-text-default hover:border-gray-400 transition-colors">
           <Filter size={16} />
-          Filter
+          Filtro
           <ChevronDown size={16} />
         </button>
         
         <button className="flex items-center gap-2 px-3 py-2 text-sm text-text-muted border border-gray-300 rounded-md hover:text-text-default hover:border-gray-400 transition-colors">
           <ArrowUpDown size={16} />
-          Sort by
+          Ordenar
           <ChevronDown size={16} />
         </button>
       </div>

@@ -13,19 +13,19 @@ export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
         return {
           dotColor: 'bg-state-success',
           textColor: 'text-state-success',
-          label: 'Confirmed'
+          label: 'Confirmada'
         };
       case 'PENDING':
         return {
           dotColor: 'bg-state-warning',
           textColor: 'text-state-warning',
-          label: 'Pending'
+          label: 'Pendiente'
         };
       case 'REVIEW':
         return {
           dotColor: 'bg-blue-500',
           textColor: 'text-blue-500',
-          label: 'Review'
+          label: 'En revisión'
         };
       default:
         return {

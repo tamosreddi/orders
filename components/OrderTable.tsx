@@ -63,7 +63,7 @@ export function OrderTable({ orders, rowSelection, onRowSelectionChange }: Order
 
     // Customer column with code and name
     columnHelper.accessor('customer', {
-      header: 'Customer',
+      header: 'Cliente',
       cell: (info) => {
         const customer = info.getValue();
         return (
@@ -88,7 +88,7 @@ export function OrderTable({ orders, rowSelection, onRowSelectionChange }: Order
 
     // Received column with date and time
     columnHelper.accessor('receivedDate', {
-      header: 'Received',
+      header: 'Recibida',
       cell: (info) => {
         const order = info.row.original;
         const date = new Date(info.getValue());
@@ -110,7 +110,7 @@ export function OrderTable({ orders, rowSelection, onRowSelectionChange }: Order
 
     // Delivery Date column
     columnHelper.accessor('deliveryDate', {
-      header: 'Delivery date',
+      header: 'Fecha de Envío',
       cell: (info) => {
         const date = new Date(info.getValue());
         return (
@@ -130,7 +130,7 @@ export function OrderTable({ orders, rowSelection, onRowSelectionChange }: Order
 
     // Products ordered column
     columnHelper.accessor('products', {
-      header: 'Products ordered',
+      header: 'Productos',
       cell: (info) => (
         <span className="text-sm text-text-default text-center">{info.getValue()}</span>
       ),
@@ -138,7 +138,7 @@ export function OrderTable({ orders, rowSelection, onRowSelectionChange }: Order
 
     // Status column
     columnHelper.accessor('status', {
-      header: 'Status',
+      header: 'Estatus',
       cell: (info) => <OrderStatusBadge status={info.getValue()} />,
       enableSorting: false,
     }),
