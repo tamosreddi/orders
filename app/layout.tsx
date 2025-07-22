@@ -4,6 +4,7 @@ import './globals.css';
 import { NavigationProvider } from '../components/navigation-menu/NavigationContext';
 import { NavigationMenu } from '../components/navigation-menu/NavigationMenu';
 import { MainContent } from '../components/navigation-menu/MainContent';
+import { AuthProvider } from '../lib/auth/AuthContext';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,14 +21,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} font-antialiased`}>
-        <NavigationProvider>
-          <div className="min-h-screen bg-surface-0">
-            <NavigationMenu />
-            <MainContent>
-              {children}
-            </MainContent>
-          </div>
-        </NavigationProvider>
+        <AuthProvider>
+          <NavigationProvider>
+            <div className="min-h-screen bg-surface-0">
+              <NavigationMenu />
+              <MainContent>
+                {children}
+              </MainContent>
+            </div>
+          </NavigationProvider>
+        </AuthProvider>
       </body>
     </html>
   );

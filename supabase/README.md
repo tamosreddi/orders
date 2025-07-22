@@ -50,7 +50,7 @@ This directory contains Supabase migrations for the complete Reddi platform, sup
 
 3. **Link to your remote project**:
    ```bash
-   supabase link --project-ref zbybqspipgsntauuapgg
+   supabase link --project-ref ckapulfmocievprlnzux
    ```
 
 4. **Apply all migrations**:

@@ -135,7 +135,7 @@ export default function OrdersPage() {
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-heading-xl font-sans text-primary-ink font-antialiased">
-            ORDERS
+            ÓRDENES
           </h1>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Customer, CustomerFilterState } from '../../types/customer';
-import { getCustomers, updateCustomer, createCustomer, CreateCustomerData } from '../../lib/mockCustomers';
+import { getCustomers, updateCustomer, createCustomer, CreateCustomerData } from '../../lib/supabase/customers';
 import { RowSelectionState } from '@tanstack/react-table';
 
 // Component imports
@@ -175,7 +175,7 @@ export default function CustomersPage() {
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-heading-xl font-sans text-primary-ink font-antialiased">
-            CUSTOMERS
+            CLIENTES
           </h1>
         </div>
 

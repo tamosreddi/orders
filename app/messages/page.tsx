@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Conversation } from './types/conversation';
 import { Message } from './types/message';
@@ -47,6 +47,17 @@ export default function MessagesPage() {
     analyzeCustomerConversation,
     detectOrderIntent
   } = useAIAgent({ distributorId });
+
+  // Auto-select the most recent conversation when conversations are loaded
+  useEffect(() => {
+    if (conversations.length > 0 && !selectedConversation && !searchValue) {
+      // Find the most recent conversation (sorted by lastMessageAt)
+      const mostRecentConversation = conversations.reduce((latest, current) => 
+        new Date(current.lastMessageAt) > new Date(latest.lastMessageAt) ? current : latest
+      );
+      setSelectedConversation(mostRecentConversation.id);
+    }
+  }, [conversations, selectedConversation, searchValue]);
 
   // Filter conversations based on search
   const filteredConversations = useMemo(() => {
@@ -140,7 +151,7 @@ export default function MessagesPage() {
       {/* Page Header */}
       <div className="px-6 py-4 border-b border-border-subtle">
         <h1 className="text-heading-xl font-sans text-primary-ink font-antialiased">
-          Messages
+          MENSAJES
         </h1>
       </div>
 

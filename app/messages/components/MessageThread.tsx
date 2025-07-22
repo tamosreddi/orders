@@ -124,7 +124,7 @@ export function MessageThread({
                 {conversation.customer.name}
               </h3>
               <p className="text-sm text-text-muted">
-                {conversation.customer.code} • {conversation.channel}
+                {conversation.channel}
               </p>
             </div>
             <div className="flex items-center space-x-1">

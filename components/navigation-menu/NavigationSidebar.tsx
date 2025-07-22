@@ -21,7 +21,7 @@ const mockUser: User = {
 export function NavigationSidebar({ items, isCollapsed, onToggleCollapsed }: NavigationSidebarProps) {
   return (
     <div className={`
-      hidden md:flex flex-col h-screen bg-brand-navy-900 text-white
+      hidden md:flex flex-col h-screen bg-reddi-green text-white
       transition-all duration-medium ease-standard fixed left-0 top-0 z-50
       ${isCollapsed ? 'w-16' : 'w-64'}
     `}>
@@ -33,9 +33,9 @@ export function NavigationSidebar({ items, isCollapsed, onToggleCollapsed }: Nav
             <Image
               src="/logos/yellow-cohete.png"
               alt="Rocket"
-              width={32}
-              height={32}
-              className="w-8 h-8"
+              width={40}
+              height={48}
+              className="w-10 h-auto object-contain"
             />
           </div>
         ) : (
@@ -44,16 +44,16 @@ export function NavigationSidebar({ items, isCollapsed, onToggleCollapsed }: Nav
             <Image
               src="/logos/yellow-cohete.png"
               alt="Rocket"
-              width={28}
-              height={28}
-              className="w-7 h-7"
+              width={36}
+              height={44}
+              className="w-9 h-auto object-contain"
             />
             <Image
               src="/logos/Reddi_green_name.png"
               alt="Reddi"
               width={90}
               height={32}
-              className="h-7 w-auto ml-2"
+              className="h-7 w-auto ml-3"
             />
           </div>
         )}

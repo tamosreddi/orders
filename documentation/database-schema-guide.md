@@ -45,369 +45,681 @@ Every message, order, and product interaction is enhanced with AI processing and
 ## 🏢 **Multi-Tenancy & Authentication**
 
 ### **distributors**
-**Purpose**: The main tenant table - each row represents a business using the platform.
+**Purpose**: The main tenant table - each row represents a business using the platform. This is the core table that enables multi-tenancy by isolating all data by business.
 
-**Key Fields**:
-- `subscription_tier`: FREE, BASIC, PREMIUM, ENTERPRISE
-- `ai_confidence_threshold`: Minimum confidence for auto-processing orders
-- `monthly_ai_budget_usd`: Cost control for AI usage
+**Key Fields** (Complete Column List):
+- `id`: Unique identifier for the distributor
+- `business_name`: The company's legal or operating name
+- `domain`: Custom domain for the distributor (optional)
+- `subdomain`: Unique subdomain like "acme.orderagent.com"
+- `api_key_hash`: Encrypted API key for external integrations
+- `webhook_secret`: Secret for webhook authentication
+- `subscription_tier`: FREE, BASIC, PREMIUM, ENTERPRISE - determines feature access
+- `subscription_status`: ACTIVE, SUSPENDED, CANCELLED - billing status
+- `billing_email`: Email for invoices and billing notifications
+- `contact_name`: Primary contact person's name
+- `contact_email`: Primary business email for support
+- `contact_phone`: Business phone number
+- `address`: Physical business address
+- `timezone`: Business timezone (default: UTC)
+- `locale`: Language preference (default: en)
+- `currency`: Business currency (default: USD)
+- `ai_enabled`: Whether AI features are active
+- `ai_model_preference`: Preferred AI model (default: gpt-4)
+- `ai_confidence_threshold`: Minimum confidence (0.0-1.0) for auto-processing orders
+- `monthly_ai_budget_usd`: Maximum monthly AI spending limit
+- `status`: ACTIVE, INACTIVE, PENDING_SETUP - account status
+- `onboarding_completed`: Whether initial setup is finished
+- `max_customers`: Customer limit based on subscription
+- `max_monthly_messages`: Message limit per month
+- `max_monthly_ai_requests`: AI request limit per month
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ➡️ **customers**: One distributor has many customers
-- ➡️ **user_profiles**: One distributor has many users
-- ➡️ **orders**: One distributor has many orders
+- ➡️ **customers**: One distributor can have many customers (filtered by distributor_id)
+- ➡️ **user_profiles**: One distributor can have many team members
+- ➡️ **orders**: One distributor processes many orders
+- ➡️ **products**: One distributor manages their own product catalog
+- ➡️ **conversations**: All conversations belong to one distributor
+- ➡️ **ai_usage_metrics**: Tracks AI usage per distributor
 
-**Why It Exists**: Enables the platform to serve multiple businesses while keeping their data completely isolated.
+**How It Works**: Every major table in the system includes a `distributor_id` column that references this table. This creates complete data isolation - when User A from Company X logs in, they only see data where `distributor_id` matches Company X's ID. This is enforced through Row Level Security (RLS) policies.
+
+**Why It Exists**: Enables Software-as-a-Service (SaaS) multi-tenancy where thousands of businesses can use the same platform while their data remains completely separate and secure.
 
 ---
 
 ### **user_profiles**
-**Purpose**: Links Supabase Auth users to distributors with role-based permissions.
+**Purpose**: Links Supabase Auth users to distributors with role-based permissions. This table extends Supabase's authentication with business-specific user data and roles.
 
-**Key Fields**:
-- `id`: References `auth.users(id)` from Supabase Auth
-- `role`: OWNER, ADMIN, MANAGER, OPERATOR
-- `permissions`: Custom permissions beyond role defaults
-- `onboarding_completed`: Track user setup progress
+**Key Fields** (Complete Column List):
+- `id`: Primary key that also references `auth.users(id)` from Supabase Auth
+- `distributor_id`: Which business this user belongs to
+- `first_name`: User's first name
+- `last_name`: User's last name  
+- `display_name`: Preferred display name in the UI
+- `avatar_url`: Profile picture URL
+- `role`: OWNER, ADMIN, MANAGER, OPERATOR - determines base permissions
+- `permissions`: Custom permissions beyond role defaults (JSON array)
+- `status`: ACTIVE, INACTIVE, SUSPENDED, PENDING - account status
+- `email_verified`: Whether user's email is confirmed
+- `last_sign_in_at`: Last successful login timestamp
+- `last_activity_at`: Last time user performed any action
+- `sign_in_count`: Total number of logins
+- `timezone`: User's preferred timezone
+- `locale`: User's language preference
+- `notification_preferences`: Email/SMS notification settings (JSON)
+- `onboarding_completed`: Whether user finished initial setup
+- `onboarding_step`: Current step in onboarding process
+- `require_password_change`: Force password reset on next login
+- `two_factor_enabled`: Whether 2FA is active
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **auth.users**: Each profile links to a Supabase Auth user
-- ⬅️ **distributors**: Each user belongs to one distributor
-- ➡️ **user_sessions**: User can have multiple active sessions
+- ⬅️ **auth.users**: Each profile extends a Supabase Auth user record
+- ⬅️ **distributors**: Each user belongs to exactly one distributor (business)
+- ➡️ **user_sessions**: User can have multiple active login sessions
+- ➡️ **user_invitations**: Users can invite other team members
+- ➡️ **ai_responses**: AI responses can be linked to specific users for feedback
 
-**Why It Exists**: Bridges Supabase's built-in authentication with our business logic and multi-tenant structure.
+**How It Works**: When a user signs up through Supabase Auth, a corresponding record is created here that links them to a specific distributor and assigns them a role. The role determines what data they can access and what actions they can perform within their distributor's data.
+
+**Why It Exists**: Supabase Auth handles authentication (login/logout/passwords) but doesn't know about our business concepts like distributors and roles. This table bridges that gap by connecting authenticated users to business contexts.
 
 ---
 
 ### **user_invitations**
-**Purpose**: Manages team member invitations with role assignment.
+**Purpose**: Manages team member invitations with role assignment. Enables secure onboarding of new team members to a distributor's account.
 
-**Key Fields**:
-- `invitation_token`: Unique token for secure invitation links
-- `role`: Role to assign when invitation is accepted
-- `expires_at`: 7-day expiry for security
+**Key Fields** (Complete Column List):
+- `id`: Unique invitation identifier
+- `distributor_id`: Which business the invitation is for
+- `email`: Email address of the person being invited
+- `role`: ADMIN, MANAGER, OPERATOR - role to assign when accepted
+- `permissions`: Additional permissions beyond the base role (JSON array)
+- `invited_by`: User ID of who sent the invitation
+- `invitation_token`: Unique secure token for the invitation link
+- `status`: PENDING, ACCEPTED, EXPIRED, REVOKED - invitation state
+- `expires_at`: When invitation expires (typically 7 days)
+- `sent_count`: How many times invitation email was sent
+- `last_sent_at`: When invitation was last emailed
+- `accepted_at`: When invitation was accepted (if applicable)
+- `revoked_at`: When invitation was cancelled (if applicable)
+- `revoked_by`: User who cancelled the invitation
+- `personal_message`: Custom message from inviter to invitee
+- `created_at`: When invitation was created
 
 **Relationships**:
-- ⬅️ **distributors**: Invitations belong to a distributor
-- ⬅️ **user_profiles**: Invited by a specific user
+- ⬅️ **distributors**: Each invitation belongs to one distributor
+- ⬅️ **user_profiles** (invited_by): Who sent the invitation
+- ⬅️ **user_profiles** (revoked_by): Who cancelled the invitation
+- ➡️ **user_profiles**: When accepted, creates a new user profile
 
-**Why It Exists**: Allows distributed team management where owners/admins can invite team members with specific roles.
+**How It Works**: When a user with appropriate permissions invites someone, this table stores the invitation with a secure token. An email is sent with a link containing the token. When clicked, the system verifies the token hasn't expired and creates a new user account with the specified role and distributor access.
+
+**Why It Exists**: Enables secure, controlled team growth where business owners can invite employees, contractors, or partners with specific access levels without sharing passwords or manually creating accounts.
 
 ---
 
 ## 👥 **Customer Management**
 
 ### **customers**
-**Purpose**: Stores business customers (not end users - this is B2B).
+**Purpose**: Stores business customers (not end users - this is B2B). Each customer represents a business that orders from the distributor.
 
-**Key Fields**:
-- `business_name`: The customer's business name
-- `customer_code`: Unique identifier for the business
-- `status`: ORDERING, AT_RISK, STOPPED_ORDERING, NO_ORDERS_YET
-- `total_orders`, `total_spent`: Auto-calculated via triggers
+**Key Fields** (Complete Column List):
+- `id`: Unique customer identifier
+- `distributor_id`: Which distributor this customer belongs to
+- `business_name`: The customer's business name (e.g., "Mario's Pizza")
+- `contact_person_name`: Primary contact at the customer business
+- `customer_code`: Unique business identifier (like "MARIO001")
+- `email`: Primary business email for orders and communication
+- `phone`: Business phone number
+- `address`: Physical business address for deliveries
+- `avatar_url`: Customer business logo or profile picture
+- `status`: ORDERING, AT_RISK, STOPPED_ORDERING, NO_ORDERS_YET - behavior-based status
+- `invitation_status`: ACTIVE, PENDING - whether they've accepted platform access
+- `joined_date`: When customer first registered
+- `last_ordered_date`: Most recent order date (auto-updated)
+- `expected_order_date`: When they typically reorder (AI prediction)
+- `total_orders`: Total number of orders placed (auto-calculated)
+- `total_spent`: Total amount spent across all orders (auto-calculated)
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **distributors**: Each customer belongs to one distributor
-- ➡️ **orders**: Customer can place many orders
-- ➡️ **conversations**: Customer can have conversations across channels
-- ➡️ **customer_label_assignments**: Customer can have multiple labels
+- ⬅️ **distributors**: Each customer belongs to exactly one distributor
+- ➡️ **orders**: Customer can place many orders over time
+- ➡️ **conversations**: Customer can have conversations across WhatsApp, SMS, email
+- ➡️ **customer_label_assignments**: Customer can have multiple category labels
+- ➡️ **messages**: Customer receives and sends messages
 
-**Why It Exists**: Central repository for business customers with automated status tracking based on ordering behavior.
+**How It Works**: When a distributor adds a new business customer, a record is created here. The system automatically updates `total_orders`, `total_spent`, and `last_ordered_date` whenever new orders are placed. The `status` field is automatically updated based on ordering patterns - customers become "AT_RISK" if they haven't ordered recently, or "STOPPED_ORDERING" if they've been inactive for too long.
+
+**Why It Exists**: Provides a complete profile of each business customer including contact information, ordering history, and behavioral status to help distributors manage relationships and identify at-risk accounts.
 
 ---
 
 ### **customer_labels**
-**Purpose**: Categorization system for customers (Dairy, Restaurant, Bar, etc.).
+**Purpose**: Categorization system for customers (Dairy, Restaurant, Bar, etc.). Allows distributors to organize customers into business categories.
 
-**Key Fields**:
-- `name`: Label name (e.g., "Dairy", "Restaurant")
-- `color`: Hex color for UI display
-- `is_predefined`: System vs custom labels
+**Key Fields** (Complete Column List):
+- `id`: Unique label identifier
+- `distributor_id`: Which distributor owns this label
+- `name`: Label name (e.g., "Dairy", "Restaurant", "Bar")
+- `color`: Hex color code for UI display (e.g., "#FF5733")
+- `description`: Optional detailed description of the label
+- `is_predefined`: TRUE for system-provided labels, FALSE for custom ones
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **distributors**: Labels can be distributor-specific or global
-- ➡️ **customer_label_assignments**: Labels applied to customers
+- ⬅️ **distributors**: Each label belongs to one distributor (or system-wide if predefined)
+- ➡️ **customer_label_assignments**: Many customers can have this label
 
-**Why It Exists**: Enables flexible customer categorization for filtering, reporting, and targeted marketing.
+**How It Works**: Distributors can create custom labels to categorize their customers by business type, size, or other criteria. The system comes with predefined labels like "Restaurant", "Dairy", "Convenience Store" that all distributors can use.
+
+**Why It Exists**: Enables flexible customer segmentation for targeted marketing, reporting, and filtering - helping distributors understand their customer base composition and tailor their approach.
 
 ---
 
 ### **customer_label_assignments**
-**Purpose**: Many-to-many relationship between customers and labels.
+**Purpose**: Many-to-many relationship between customers and labels. Enables customers to have multiple category labels.
 
-**Key Fields**:
-- `value`: Optional additional value for the label
+**Key Fields** (Complete Column List):
+- `customer_id`: Which customer this assignment belongs to
+- `label_id`: Which label is being assigned
+- `value`: Optional additional value for the label (e.g., "Large" for a "Restaurant" label)
+- `assigned_at`: When this label was assigned to the customer
 
 **Relationships**:
-- ⬅️ **customers**: Which customer has the label
-- ⬅️ **customer_labels**: Which label is assigned
+- ⬅️ **customers**: Which specific customer has this label
+- ⬅️ **customer_labels**: Which specific label is assigned
 
-**Why It Exists**: Allows customers to have multiple labels (e.g., a business can be both "Dairy" and "Restaurant").
+**How It Works**: When a customer needs multiple categories, separate records are created here. For example, a business might be both "Restaurant" and "Dairy" if they serve food and sell milk products. The `value` field allows for additional context like "Large Restaurant" or "Specialty Dairy".
+
+**Why It Exists**: Real businesses often fit multiple categories, so this junction table allows flexible, multi-dimensional customer categorization rather than forcing each customer into a single category.
 
 ---
 
 ## 💬 **Messaging System**
 
 ### **conversations**
-**Purpose**: Groups messages by customer and communication channel.
+**Purpose**: Groups messages by customer and communication channel. Each conversation represents a communication thread between a distributor and customer on a specific channel.
 
-**Key Fields**:
-- `channel`: WHATSAPP, SMS, EMAIL
-- `unread_count`: Messages from customer not yet read
-- `ai_context_summary`: AI-generated conversation summary
+**Key Fields** (Complete Column List):
+- `id`: Unique conversation identifier
+- `customer_id`: Which customer this conversation is with
+- `distributor_id`: Which distributor owns this conversation
+- `channel`: WHATSAPP, SMS, EMAIL - the communication method
+- `status`: ACTIVE, ARCHIVED - whether conversation is ongoing
+- `last_message_at`: Timestamp of most recent message
+- `unread_count`: Number of customer messages not yet read by distributor
+- `ai_context_summary`: AI-generated summary of conversation topics and status
+- `ai_last_processed_at`: When AI last analyzed this conversation
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **customers**: Each conversation belongs to one customer
-- ⬅️ **distributors**: Each conversation belongs to one distributor
-- ➡️ **messages**: Conversation contains many messages
-- ➡️ **orders**: Orders can be linked to conversations
+- ⬅️ **customers**: Each conversation belongs to exactly one customer
+- ⬅️ **distributors**: Each conversation belongs to exactly one distributor
+- ➡️ **messages**: Conversation contains many individual messages
+- ➡️ **orders**: Orders can be linked to the conversation where they originated
 
-**Why It Exists**: Organizes messages by customer and channel, enabling unified inbox experience across WhatsApp, SMS, and email.
+**How It Works**: When a customer sends their first message via any channel (WhatsApp, SMS, email), a conversation record is created. All subsequent messages between that customer and distributor on that channel are grouped under this conversation. Each customer can have separate conversations per channel (one WhatsApp conversation, one SMS conversation, etc.).
+
+**Why It Exists**: Provides a unified inbox experience where distributors can manage all customer communications across multiple channels in one place, with proper threading and context preservation.
 
 ---
 
 ### **messages**
-**Purpose**: Individual messages in conversations with AI processing metadata.
+**Purpose**: Individual messages in conversations with AI processing metadata. Stores every message sent or received with full AI analysis.
 
-**Key Fields**:
-- `content`: The actual message text
-- `is_from_customer`: Direction of the message
+**Key Fields** (Complete Column List):
+- `id`: Unique message identifier
+- `conversation_id`: Which conversation this message belongs to
+- `content`: The actual message text or content
+- `is_from_customer`: TRUE if customer sent it, FALSE if distributor sent it
+- `message_type`: TEXT, IMAGE, AUDIO, FILE, ORDER_CONTEXT - what kind of message
+- `status`: SENT, DELIVERED, READ - delivery status
+- `attachments`: JSON array of file attachments (images, PDFs, etc.)
 - `ai_processed`: Whether AI has analyzed this message
-- `ai_extracted_intent`: AI-detected intent (order, question, complaint)
-- `ai_suggested_responses`: AI-generated response suggestions
+- `ai_confidence`: AI's confidence level in its analysis (0.0-1.0)
+- `ai_extracted_intent`: AI-detected intent (order, question, complaint, greeting)
+- `ai_extracted_products`: JSON array of products AI identified in the message
+- `ai_suggested_responses`: JSON array of AI-generated response suggestions
+- `order_context_id`: Soft reference to order if message created/relates to an order
+- `thread_position`: Message sequence number in conversation
+- `reply_to_message_id`: If replying to specific message, references that message
+- `external_message_id`: ID from external system (WhatsApp, SMS provider)
+- `external_metadata`: Additional data from external messaging platform
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **conversations**: Each message belongs to one conversation
-- ➡️ **ai_responses**: AI can generate multiple responses per message
-- ➡️ **orders**: Message can trigger order creation
+- ⬅️ **conversations**: Each message belongs to exactly one conversation
+- ➡️ **ai_responses**: AI can generate multiple analysis responses per message
+- ➡️ **orders**: Message can trigger automatic order creation
+- ⬅️ **messages** (reply_to): Messages can reference other messages in thread
 
-**Why It Exists**: Core message storage with AI enhancement for intelligent processing and response generation.
+**How It Works**: Every message sent or received is stored here with its full content and metadata. AI automatically processes each message to extract intent, identify products, and suggest responses. The system tracks delivery status and maintains proper threading for complex conversations.
+
+**Why It Exists**: Central repository for all communications with AI enhancement, enabling intelligent automation, order processing, and customer service while maintaining complete message history.
 
 ---
 
 ## 📦 **Order Management**
 
 ### **orders**
-**Purpose**: Customer orders with AI generation tracking.
+**Purpose**: Customer orders with AI generation tracking. Represents a complete order placed by a customer, whether manually entered or AI-generated from messages.
 
-**Key Fields**:
-- `channel`: Which channel the order came from
-- `status`: CONFIRMED, PENDING, REVIEW
-- `ai_generated`: Whether order was created by AI from a message
-- `ai_confidence`: Confidence level of AI order extraction
-- `requires_review`: Whether order needs manual review
+**Key Fields** (Complete Column List):
+- `id`: Unique order identifier
+- `customer_id`: Which customer placed this order
+- `distributor_id`: Which distributor processes this order
+- `conversation_id`: Which conversation (if any) this order originated from
+- `channel`: WHATSAPP, SMS, EMAIL - how the order was received
+- `status`: CONFIRMED, PENDING, REVIEW - current order state
+- `received_date`: Date the order was placed
+- `received_time`: Time the order was placed
+- `delivery_date`: When customer wants delivery (optional)
+- `postal_code`: Delivery postal code
+- `delivery_address`: Full delivery address
+- `total_amount`: Total order value in distributor's currency
+- `additional_comment`: Customer notes or special instructions
+- `whatsapp_message`: Original WhatsApp message if order came via WhatsApp
+- `ai_generated`: TRUE if AI created this order from a message
+- `ai_confidence`: AI's confidence level in order extraction (0.0-1.0)
+- `ai_source_message_id`: Which message AI used to create this order
+- `requires_review`: TRUE if order needs human review before processing
+- `reviewed_by`: User who reviewed the order (if applicable)
+- `reviewed_at`: When the order was reviewed
+- `external_order_id`: Reference to order in external system
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **customers**: Each order belongs to one customer
-- ⬅️ **conversations**: Orders can be linked to conversations
-- ⬅️ **distributors**: Each order belongs to one distributor
-- ➡️ **order_products**: Order contains multiple product lines
-- ➡️ **order_attachments**: Order can have file attachments
+- ⬅️ **customers**: Each order belongs to exactly one customer
+- ⬅️ **conversations**: Orders can be linked to the conversation where they originated
+- ⬅️ **distributors**: Each order belongs to exactly one distributor
+- ➡️ **order_products**: Order contains multiple product line items
+- ➡️ **order_attachments**: Order can have file attachments (photos, documents)
+- ⬅️ **messages**: AI can reference the source message that created the order
 
-**Why It Exists**: Central order processing with AI integration for automatic order creation from natural language messages.
+**How It Works**: Orders can be created manually by distributor staff or automatically by AI when it detects ordering intent in customer messages. AI-generated orders are marked with confidence scores and may require human review if confidence is below the distributor's threshold. The system tracks the complete order lifecycle from creation to fulfillment.
+
+**Why It Exists**: Central order management that bridges traditional order entry with AI-powered automation, enabling distributors to process orders from natural language messages while maintaining control and accuracy.
 
 ---
 
 ### **order_products**
-**Purpose**: Individual line items within orders.
+**Purpose**: Individual line items within orders. Each row represents one product type and quantity in an order.
 
-**Key Fields**:
-- `product_name`: Text description (future: link to products table)
-- `quantity`, `unit_price`, `line_price`: Pricing information
-- `ai_extracted`: Whether this line was extracted by AI
-- `ai_original_text`: Original message text AI interpreted
+**Key Fields** (Complete Column List):
+- `id`: Unique line item identifier
+- `order_id`: Which order this line item belongs to
+- `product_name`: Text description of the product (e.g., "Whole Milk 1L")
+- `product_unit`: Unit of measurement (e.g., "bottles", "cases", "kg")
+- `quantity`: How many units ordered
+- `unit_price`: Price per unit in distributor's currency
+- `line_price`: Total price for this line (quantity × unit_price)
+- `ai_extracted`: TRUE if AI extracted this line from a message
+- `ai_confidence`: AI's confidence in this line item extraction (0.0-1.0)
+- `ai_original_text`: Original message text AI interpreted for this line
+- `suggested_product_id`: AI's suggested match to product catalog
+- `manual_override`: TRUE if human manually corrected AI extraction
+- `line_order`: Position of this line in the order (for display)
+- `notes`: Additional notes about this line item
+- `matched_product_id`: Actual product from catalog this line refers to
+- `matching_confidence`: Confidence in product catalog match (0.0-1.0)
+- `matching_method`: EXACT_MATCH, FUZZY_MATCH, AI_MATCH, MANUAL_OVERRIDE
+- `matching_score`: Numerical score of catalog match quality
+- `alternative_matches`: JSON array of other possible product matches
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **orders**: Each line item belongs to one order
-- ➡️ **products**: Future link to product catalog
+- ⬅️ **orders**: Each line item belongs to exactly one order
+- ⬅️ **products**: Line items can be matched to catalog products
+- ⬅️ **product_variants**: Line items can reference specific product variants
 
-**Why It Exists**: Detailed order composition with AI extraction tracking for continuous learning and accuracy improvement.
+**How It Works**: When an order is created (manually or by AI), each product becomes a separate line item here. AI attempts to match line items to the distributor's product catalog using various matching algorithms. The system tracks how confident it is in both the extraction and the catalog matching to enable continuous improvement.
+
+**Why It Exists**: Provides detailed order composition with intelligent product matching, enabling accurate order processing while capturing data to improve AI extraction and product recognition over time.
 
 ---
 
 ## 🛍️ **Product Catalog**
 
 ### **products**
-**Purpose**: Master product catalog with AI matching capabilities.
+**Purpose**: Master product catalog with AI matching capabilities. Each product represents an item that the distributor sells.
 
-**Key Fields**:
-- `aliases`: Alternative names customers use
-- `keywords`: Search keywords for AI matching
-- `ai_training_examples`: Example phrases customers use
+**Key Fields** (Complete Column List):
+- `id`: Unique product identifier
+- `distributor_id`: Which distributor owns this product
+- `name`: Official product name (e.g., "Organic Whole Milk")
+- `sku`: Stock Keeping Unit code (unique product identifier)
+- `description`: Detailed product description
+- `category`: General category text (deprecated, use category_id)
+- `category_id`: Reference to structured product category
+- `unit`: Unit of sale ("bottle", "case", "kg", "liter")
+- `unit_price`: Standard selling price per unit
+- `brand`: Product brand or manufacturer
+- `model`: Product model or variant identifier
+- `size_variants`: JSON array of available sizes
+- `seasonal`: TRUE if product is only available certain times of year
+- `minimum_order_quantity`: Smallest quantity that can be ordered
+- `maximum_order_quantity`: Largest quantity that can be ordered (optional)
+- `lead_time_days`: How many days needed to fulfill order
+- `aliases`: JSON array of alternative names customers use
+- `keywords`: JSON array of search keywords for AI matching
+- `ai_training_examples`: JSON array of example phrases customers use
+- `common_misspellings`: JSON array of common misspellings AI should recognize
+- `seasonal_patterns`: JSON array of seasonal availability data
+- `in_stock`: Whether product is currently available
+- `stock_quantity`: Current inventory level (optional)
+- `active`: Whether product is currently being sold
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **distributors**: Each product belongs to one distributor
-- ⬅️ **product_categories**: Products can be categorized
-- ➡️ **product_variants**: Products can have variants
-- ➡️ **order_products**: Future link from order lines
+- ⬅️ **distributors**: Each product belongs to exactly one distributor
+- ⬅️ **product_categories**: Products are organized into categories
+- ➡️ **product_variants**: Products can have size/color/type variants
+- ➡️ **order_products**: Order lines reference products
+- ➡️ **product_bundle_items**: Products can be part of bundles
 
-**Why It Exists**: Enables AI agents to match customer messages to actual products, improving order accuracy and automation.
+**How It Works**: Distributors manage their product catalog here, with rich metadata to help AI understand customer requests. When customers mention products in messages, AI uses the aliases, keywords, and training examples to match fuzzy requests like "milk" to "Organic Whole Milk 1L" with high accuracy.
+
+**Why It Exists**: Provides a comprehensive product catalog that enables both human staff and AI agents to accurately identify and process customer product requests, improving order accuracy and automation.
 
 ---
 
 ### **product_categories**
-**Purpose**: Hierarchical product organization.
+**Purpose**: Hierarchical product organization. Enables structured categorization of products with nested subcategories.
 
-**Key Fields**:
-- `parent_category_id`: Self-referencing for hierarchy
-- `ai_keywords`: Keywords for AI classification
+**Key Fields** (Complete Column List):
+- `id`: Unique category identifier
+- `distributor_id`: Which distributor owns this category
+- `name`: Category name (e.g., "Dairy", "Beverages", "Frozen Foods")
+- `parent_category_id`: Self-referencing for hierarchy (NULL for top-level categories)
+- `description`: Detailed description of what fits in this category
+- `ai_keywords`: JSON array of keywords for AI classification
+- `sort_order`: Display order within parent category
+- `active`: Whether category is currently in use
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **distributors**: Categories belong to distributors
-- ➡️ **products**: Categories contain products
-- ➡️ **product_categories**: Self-referencing for subcategories
+- ⬅️ **distributors**: Each category belongs to exactly one distributor
+- ➡️ **products**: Categories contain multiple products
+- ➡️ **product_categories**: Self-referencing for subcategories (e.g., "Dairy" > "Milk" > "Organic Milk")
 
-**Why It Exists**: Organized product structure that helps AI agents understand product relationships and context.
+**How It Works**: Categories can be nested multiple levels deep (e.g., "Food" > "Dairy" > "Milk" > "Organic"). AI uses category relationships to understand product context and suggest related items. When customers ask for "dairy products", AI can search all products in the dairy category tree.
+
+**Why It Exists**: Provides organized product structure that helps both human users navigate large catalogs and AI agents understand product relationships and context for better matching and suggestions.
 
 ---
 
 ### **product_variants**
-**Purpose**: Product variations (sizes, colors, etc.).
+**Purpose**: Product variations (sizes, colors, etc.). Handles different versions of the same base product.
 
-**Key Fields**:
-- `variant_type`: SIZE, COLOR, VOLUME, WEIGHT
-- `ai_aliases`: Alternative names for AI matching
+**Key Fields** (Complete Column List):
+- `id`: Unique variant identifier
+- `product_id`: Which base product this variant belongs to
+- `distributor_id`: Which distributor owns this variant
+- `variant_name`: Name of this specific variant (e.g., "Large", "500ml", "Red")
+- `variant_type`: SIZE, COLOR, VOLUME, WEIGHT, FLAVOR, STYLE
+- `sku`: Unique SKU for this specific variant
+- `unit_price`: Price for this variant (may differ from base product)
+- `price_difference`: Price difference from base product (+/- amount)
+- `stock_quantity`: Current inventory for this specific variant
+- `low_stock_threshold`: Alert when stock falls below this level
+- `ai_aliases`: JSON array of alternative names for AI matching
+- `sort_order`: Display order within product variants
+- `active`: Whether this variant is currently available
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **products**: Each variant belongs to one product
-- ⬅️ **distributors**: Each variant belongs to one distributor
+- ⬅️ **products**: Each variant belongs to exactly one base product
+- ⬅️ **distributors**: Each variant belongs to exactly one distributor
+- ➡️ **order_products**: Order lines can reference specific variants
+- ➡️ **product_bundle_items**: Bundles can include specific variants
 
-**Why It Exists**: Handles product complexity while maintaining AI's ability to understand customer requests for specific variants.
+**How It Works**: When a base product like "Coca Cola" has multiple sizes ("330ml", "500ml", "1L"), each size becomes a variant. AI learns to match customer requests like "large coke" to the "1L" variant of "Coca Cola". Each variant can have its own pricing and inventory tracking.
+
+**Why It Exists**: Handles real-world product complexity where the same item comes in different sizes, colors, or configurations, while maintaining AI's ability to understand and match customer requests for specific variants.
 
 ---
 
 ## 🤖 **AI System**
 
 ### **ai_responses**
-**Purpose**: Tracks all AI-generated responses for learning and improvement.
+**Purpose**: Tracks all AI-generated responses for learning and improvement. Every AI interaction is logged for quality monitoring and cost tracking.
 
-**Key Fields**:
-- `agent_type`: ORDER_PROCESSING, CUSTOMER_SUPPORT, MESSAGE_ANALYSIS
-- `confidence`: AI confidence in the response
-- `human_feedback`: User rating of AI response quality
-- `tokens_used`: OpenAI API cost tracking
+**Key Fields** (Complete Column List):
+- `id`: Unique AI response identifier
+- `message_id`: Which message triggered this AI response
+- `agent_type`: ORDER_PROCESSING, CUSTOMER_SUPPORT, MESSAGE_ANALYSIS, CONTEXT_MANAGER
+- `agent_version`: Version of AI agent used (e.g., "v1.0", "v2.3")
+- `response_content`: The actual AI-generated response text
+- `confidence`: AI's confidence in its response (0.0-1.0)
+- `processing_time`: How long AI took to generate response (milliseconds)
+- `extracted_data`: JSON of structured data AI extracted (products, intent, etc.)
+- `tokens_used`: Number of tokens consumed by OpenAI API
+- `model_used`: AI model used (e.g., "gpt-4", "gpt-3.5-turbo")
+- `prompt_version`: Version of prompt template used
+- `human_feedback`: HELPFUL, PARTIALLY_HELPFUL, NOT_HELPFUL
+- `human_feedback_notes`: Detailed feedback from human reviewers
+- `was_used`: Whether the AI response was actually used/sent
+- `created_at`: When AI generated this response
 
 **Relationships**:
-- ⬅️ **messages**: AI responses are linked to messages
-- ➡️ **ai_training_data**: Poor responses become training data
+- ⬅️ **messages**: Each AI response is triggered by a specific message
+- ➡️ **ai_training_data**: Poor responses become training examples for improvement
 
-**Why It Exists**: Continuous AI improvement through response tracking, feedback collection, and cost monitoring.
+**How It Works**: Every time AI processes a message, the response is logged here with metadata about performance, cost, and quality. Human users can rate responses, and this feedback is used to improve future AI performance.
+
+**Why It Exists**: Enables continuous AI improvement through response tracking, human feedback collection, cost monitoring, and performance analysis.
 
 ---
 
 ### **ai_usage_metrics**
-**Purpose**: Detailed AI usage tracking with hourly granularity.
+**Purpose**: Detailed AI usage tracking with time-based granularity. Tracks AI consumption for billing and monitoring.
 
-**Key Fields**:
-- `date`, `hour`: Time-based tracking
-- `requests_count`: Number of AI requests
-- `cost_cents`: Cost in USD cents for precision
-- `avg_confidence`: Quality metrics
+**Key Fields** (Complete Column List):
+- `id`: Unique metrics record identifier
+- `distributor_id`: Which distributor this usage belongs to
+- `period_start`: Start of tracking period (typically hourly)
+- `period_end`: End of tracking period
+- `requests_count`: Total number of AI requests in this period
+- `tokens_used`: Total tokens consumed across all requests
+- `cost_usd`: Total cost in USD for this period
+- `avg_confidence`: Average confidence score across all AI responses
+- `successful_requests`: Number of requests that completed successfully
+- `failed_requests`: Number of requests that failed or errored
+- `avg_response_time`: Average AI response time in milliseconds
+- `peak_concurrent_requests`: Highest number of simultaneous AI requests
+- `created_at`: When this metrics record was created
 
 **Relationships**:
-- ⬅️ **distributors**: Usage tracked per distributor
+- ⬅️ **distributors**: Each metrics record belongs to one distributor
 
-**Why It Exists**: Cost control, performance monitoring, and usage analytics for AI features.
+**How It Works**: The system aggregates AI usage data periodically (typically hourly) to track consumption patterns, costs, and performance metrics per distributor. This data is used for billing, monitoring, and optimization.
+
+**Why It Exists**: Provides detailed AI usage analytics for cost control, performance monitoring, billing accuracy, and identifying optimization opportunities.
 
 ---
 
 ### **ai_training_data**
-**Purpose**: Collects data for improving AI performance.
+**Purpose**: Collects data for improving AI performance. Stores examples of correct AI responses for training and fine-tuning.
 
-**Key Fields**:
-- `input_text`: Original message or query
-- `expected_output`: What AI should have generated
-- `data_source`: MANUAL_ENTRY, CORRECTED_AI_OUTPUT
+**Key Fields** (Complete Column List):
+- `id`: Unique training data identifier
+- `input_text`: Original message or query text
+- `input_context`: JSON of additional context (customer history, product catalog, etc.)
+- `expected_output`: JSON of what AI should have generated
+- `expected_confidence`: What confidence level AI should have had
+- `actual_output`: JSON of what AI actually generated (if applicable)
+- `actual_confidence`: What confidence level AI actually had
+- `data_source`: MANUAL_ENTRY, CORRECTED_AI_OUTPUT, EXPERT_REVIEW
+- `quality_score`: Human rating of training example quality (1-5)
+- `used_in_training`: Whether this example has been used to train AI models
+- `training_batch`: Identifier for which training batch included this example
+- `created_at`: When training example was created
 
 **Relationships**:
-- ⬅️ **distributors**: Training data belongs to distributors
+- ⬅️ **distributors**: Training data can be distributor-specific for customization
+- ⬅️ **ai_responses**: Training data can be derived from corrected AI responses
 
-**Why It Exists**: Enables continuous AI improvement through feedback loops and corrected examples.
+**How It Works**: When AI makes mistakes or when experts want to teach AI new patterns, examples are stored here. These examples are used to fine-tune AI models and improve performance for specific distributors or use cases.
+
+**Why It Exists**: Enables continuous AI improvement through curated training examples, allowing the system to learn from mistakes and expert knowledge to provide better results over time.
 
 ---
 
 ## 🔐 **Security & Privacy**
 
 ### **data_access_audit**
-**Purpose**: Comprehensive audit trail for data access (GDPR compliance).
+**Purpose**: Comprehensive audit trail for data access (GDPR compliance). Logs every database operation for security and legal compliance.
 
-**Key Fields**:
-- `user_id`: Who accessed the data
-- `table_name`, `record_id`: What was accessed
-- `operation`: SELECT, INSERT, UPDATE, DELETE
-- `contains_pii`: Whether PII was involved
+**Key Fields** (Complete Column List):
+- `id`: Unique audit record identifier
+- `table_name`: Which database table was accessed
+- `operation`: SELECT, INSERT, UPDATE, DELETE - what action was performed
+- `user_id`: Which user performed the action (if applicable)
+- `distributor_id`: Which distributor the accessed data belongs to
+- `attempted_record_id`: ID of the specific record accessed
+- `ip_address`: IP address of the user who performed the action
+- `user_agent`: Browser/application information
+- `created_at`: Exact timestamp of the access
 
 **Relationships**:
-- ⬅️ **distributors**: Audit events belong to distributors
+- ⬅️ **distributors**: Audit events are associated with distributors
+- ⬅️ **user_profiles**: Audit events can be linked to specific users
 
-**Why It Exists**: Legal compliance (GDPR, HIPAA) and security monitoring for sensitive data access.
+**How It Works**: Every database operation is automatically logged through database triggers and application-level auditing. This creates an immutable trail of who accessed what data when, essential for GDPR compliance and security investigations.
+
+**Why It Exists**: Provides legal compliance (GDPR, HIPAA), security monitoring for detecting unauthorized access, and forensic capabilities for investigating data breaches or misuse.
 
 ---
 
 ### **pii_detection_results**
-**Purpose**: Tracks personally identifiable information detected in messages.
+**Purpose**: Tracks personally identifiable information detected in messages. Automatically identifies sensitive data for privacy protection.
 
-**Key Fields**:
-- `pii_type`: EMAIL, PHONE, ADDRESS, SSN, CREDIT_CARD
-- `confidence_score`: Detection confidence
-- `reviewed`: Whether human has reviewed the detection
+**Key Fields** (Complete Column List):
+- `id`: Unique PII detection identifier
+- `distributor_id`: Which distributor this detection belongs to
+- `message_id`: Which message contained the PII (if applicable)
+- `field_name`: Which database field contained PII
+- `pii_type`: EMAIL, PHONE, ADDRESS, SSN, CREDIT_CARD, NAME, DATE_OF_BIRTH
+- `detected_value`: The actual PII value detected (encrypted)
+- `confidence_score`: AI confidence in PII detection (0.0-1.0)
+- `detection_rule_id`: Which detection rule identified this PII
+- `reviewed`: Whether human has reviewed and confirmed the detection
+- `is_false_positive`: Whether detection was incorrect
+- `reviewed_by`: User who reviewed the detection
+- `reviewed_at`: When the detection was reviewed
+- `action_taken`: What action was taken (REDACTED, ENCRYPTED, FLAGGED)
+- `created_at`: When PII was detected
 
 **Relationships**:
-- ⬅️ **distributors**: PII detection per distributor
-- ⬅️ **pii_detection_rules**: Which rule triggered detection
+- ⬅️ **distributors**: PII detections are associated with distributors
+- ⬅️ **messages**: PII can be detected in message content
+- ⬅️ **user_profiles**: Detection reviews are linked to users
 
-**Why It Exists**: Automated PII detection for privacy compliance and data protection.
+**How It Works**: AI automatically scans all message content and form data for patterns that match PII types. When detected, the system can automatically redact, encrypt, or flag the data for review while logging the detection for compliance purposes.
+
+**Why It Exists**: Ensures privacy compliance (GDPR, CCPA) by automatically detecting and protecting personally identifiable information in customer communications and data.
 
 ---
 
 ## 🔗 **Integrations**
 
 ### **webhook_endpoints**
-**Purpose**: Configuration for external system webhooks.
+**Purpose**: Configuration for external system webhooks. Defines where and how to send real-time event notifications to external systems.
 
-**Key Fields**:
-- `url`: Webhook destination
-- `events`: Array of events to subscribe to
-- `auth_type`: Authentication method
-- `retry_attempts`: Failure handling
+**Key Fields** (Complete Column List):
+- `id`: Unique webhook endpoint identifier
+- `distributor_id`: Which distributor owns this webhook
+- `name`: Human-readable name for the webhook
+- `url`: Destination URL where events will be sent
+- `events`: JSON array of event types to subscribe to (e.g., ["message.created", "order.created"])
+- `auth_type`: NONE, API_KEY, BEARER_TOKEN, HMAC_SHA256
+- `auth_value`: Authentication credential (encrypted)
+- `retry_attempts`: Maximum number of retry attempts on failure
+- `retry_delay_seconds`: Delay between retry attempts
+- `timeout_seconds`: Request timeout before considering delivery failed
+- `active`: Whether webhook is currently enabled
+- `last_triggered_at`: When webhook was last fired
+- `total_deliveries`: Count of all delivery attempts
+- `successful_deliveries`: Count of successful deliveries
+- `failed_deliveries`: Count of failed deliveries
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **distributors**: Webhooks belong to distributors
-- ➡️ **webhook_deliveries**: Webhooks generate deliveries
+- ⬅️ **distributors**: Each webhook belongs to exactly one distributor
+- ➡️ **webhook_deliveries**: Webhooks generate multiple delivery attempts
 
-**Why It Exists**: Enables real-time integration with WhatsApp Business API, SMS providers, and other external systems.
+**How It Works**: When configured events occur (new message, order created, etc.), the system sends HTTP POST requests to the specified URL with event data. Authentication and retry logic ensure reliable delivery to external systems.
+
+**Why It Exists**: Enables real-time integration with external systems like WhatsApp Business API, SMS providers, CRM systems, and custom applications that need immediate notification of platform events.
 
 ---
 
 ### **webhook_deliveries**
-**Purpose**: Tracks webhook delivery attempts and status.
+**Purpose**: Tracks webhook delivery attempts and status. Logs every attempt to deliver webhook events for monitoring and debugging.
 
-**Key Fields**:
-- `event_type`: message.created, order.created, etc.
+**Key Fields** (Complete Column List):
+- `id`: Unique delivery attempt identifier
+- `webhook_endpoint_id`: Which webhook endpoint this delivery is for
+- `event_type`: Specific event type (e.g., "message.created", "order.confirmed")
+- `event_data`: JSON payload sent to webhook
 - `status`: PENDING, SUCCESS, FAILED, RETRYING
-- `response_status_code`: HTTP response from webhook
+- `attempt_number`: Which retry attempt this is (1 for first attempt)
+- `scheduled_at`: When delivery is/was scheduled
+- `attempted_at`: When delivery attempt was made
+- `completed_at`: When delivery attempt finished
+- `response_status_code`: HTTP status code returned by webhook endpoint
+- `response_body`: Response body from webhook endpoint
+- `response_headers`: Response headers from webhook endpoint
+- `error_message`: Error details if delivery failed
+- `retry_after`: When next retry attempt is scheduled
+- `created_at`: When delivery record was created
 
 **Relationships**:
-- ⬅️ **webhook_endpoints**: Deliveries belong to endpoints
-- ⬅️ **messages**, **orders**, **customers**: Event data sources
+- ⬅️ **webhook_endpoints**: Each delivery belongs to one webhook endpoint
+- ⬅️ **messages**, **orders**, **customers**: Event data sources (soft references through event_data)
 
-**Why It Exists**: Reliable webhook delivery with retry logic and debugging information.
+**How It Works**: When an event occurs, a delivery record is created with the event data. The system attempts delivery and logs the response. If delivery fails, retry records are created based on the webhook's retry configuration.
+
+**Why It Exists**: Provides reliable webhook delivery with comprehensive logging for monitoring, debugging, and ensuring external systems receive all important events.
 
 ---
 
 ### **external_integrations**
-**Purpose**: Configuration for external service integrations.
+**Purpose**: Configuration for external service integrations. Manages connections to third-party services like messaging platforms, CRMs, and e-commerce systems.
 
-**Key Fields**:
-- `integration_type`: MESSAGING, ECOMMERCE, CRM, ANALYTICS
-- `provider`: Meta, Twilio, SendGrid, etc.
-- `config`: Provider-specific settings
+**Key Fields** (Complete Column List):
+- `id`: Unique integration identifier
+- `distributor_id`: Which distributor owns this integration
+- `integration_type`: MESSAGING, ECOMMERCE, CRM, ANALYTICS, PAYMENT, SHIPPING
+- `provider`: Provider name (e.g., "Meta", "Twilio", "SendGrid", "Shopify")
+- `provider_version`: API version or integration version
+- `display_name`: Human-readable name for this integration
+- `config`: JSON of provider-specific configuration settings
+- `credentials`: JSON of encrypted authentication credentials
+- `webhook_url`: URL for receiving webhooks from this provider
+- `webhook_secret`: Secret for validating webhook authenticity
+- `status`: ACTIVE, INACTIVE, ERROR, PENDING_AUTH
+- `last_sync_at`: When data was last synchronized with provider
+- `sync_frequency_minutes`: How often to sync data
+- `error_count`: Number of consecutive errors
+- `last_error_message`: Details of most recent error
+- `capabilities`: JSON array of what this integration can do
+- `rate_limit_remaining`: Current API rate limit status
+- `rate_limit_reset_at`: When rate limit resets
+- `created_at`, `updated_at`: Standard timestamps
 
 **Relationships**:
-- ⬅️ **distributors**: Integrations belong to distributors
-- ➡️ **external_message_mappings**: Message synchronization
+- ⬅️ **distributors**: Each integration belongs to exactly one distributor
+- ➡️ **external_message_mappings**: Maps internal messages to external system IDs
+- ➡️ **webhook_deliveries**: Integration events can trigger webhooks
 
-**Why It Exists**: Centralized management of external service connections with provider-specific configurations.
+**How It Works**: Distributors configure integrations with external services by providing API credentials and settings. The system uses these configurations to sync data, send messages, and receive webhooks from external platforms.
+
+**Why It Exists**: Provides centralized management of external service connections, enabling seamless integration with messaging platforms (WhatsApp, SMS), e-commerce systems, CRMs, and other business tools.
 
 ---
 

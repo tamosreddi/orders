@@ -8,6 +8,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        'reddi-green': '#57BAB5',
         brand: {
           navy: {
             900: '#0B0130',

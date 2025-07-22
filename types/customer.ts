@@ -7,21 +7,21 @@ export interface CustomerLabel {
 
 export interface Customer {
   id: string;
-  name: string; // Business name
-  customerName?: string; // Person responsible for the business
-  avatar: string;
-  code: string;
+  name: string; // Business name (maps to business_name in DB)
+  customerName?: string; // Person responsible for the business (maps to contact_person_name in DB)
+  avatar: string; // Maps to avatar_url in DB
+  code: string; // Maps to customer_code in DB
   labels: CustomerLabel[];
-  lastOrdered: string | null;
-  expectedOrder: string | null;
+  lastOrdered: string | null; // Maps to last_ordered_date in DB
+  expectedOrder: string | null; // Maps to expected_order_date in DB
   status: CustomerStatus;
   invitationStatus: CustomerInvitationStatus;
   email: string;
   phone?: string;
   address?: string;
-  joinedDate: string;
-  totalOrders: number;
-  totalSpent: number;
+  joinedDate: string; // Maps to joined_date in DB
+  totalOrders: number; // Maps to total_orders in DB
+  totalSpent: number; // Maps to total_spent in DB
 }
 
 export type CustomerStatus = 'ORDERING' | 'AT_RISK' | 'STOPPED_ORDERING' | 'NO_ORDERS_YET';

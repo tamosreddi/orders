@@ -15,13 +15,6 @@ const baseNavigationItems: NavigationItem[] = [
     isDisabled: false
   },
   {
-    id: 'marketing',
-    label: 'Marketing',
-    href: '/marketing',
-    icon: 'Megaphone',
-    isDisabled: true
-  },
-  {
     id: 'orders',
     label: 'Orders',
     href: '/orders',

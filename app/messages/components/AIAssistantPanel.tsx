@@ -122,10 +122,6 @@ export function AIAssistantPanel({
       <div className="flex-1 overflow-y-auto">
         {/* Customer Context */}
         <div className="p-4 border-b border-border-subtle">
-          <h4 className="text-sm font-medium text-text-default mb-3 flex items-center">
-            <User className="w-4 h-4 mr-2" />
-            Customer Profile
-          </h4>
           <div className="bg-surface-alt rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">{conversation.customer.name}</span>
@@ -134,7 +130,6 @@ export function AIAssistantPanel({
               </span>
             </div>
             <div className="text-xs text-text-muted space-y-1">
-              <div>Code: {conversation.customer.code}</div>
               <div>Channel: {conversation.channel}</div>
               <div className="flex items-center">
                 <Star className="w-3 h-3 mr-1" />
