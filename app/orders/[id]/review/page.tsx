@@ -6,7 +6,7 @@ import { X } from 'lucide-react';
 import { OrderDetails, OrderProduct } from '../../../../types/order';
 import { Customer } from '../../../../types/customer';
 import { getOrderDetails } from '../../../../lib/mockOrders';
-import { getCustomerByCode } from '../../../../lib/mockCustomers';
+import { getCustomerByCode } from '../../../../lib/api/customers';
 import { EditableProductsTable } from '../../../../components/OrderReview/EditableProductsTable';
 import { ClickableCustomerDisplay } from '../../../../components/OrderReview/ClickableCustomerDisplay';
 import { CustomerDetailsPanel } from '../../../../components/customer_components/CustomerDetailsPanel';
@@ -120,7 +120,7 @@ export default function OrderReviewPage() {
             <span className="text-sm text-gray-400">2 de 54 pedidos</span>
           </div>
           <div className="flex items-center space-x-4">
-            <button className="text-blue-600 text-sm hover:text-blue-700">
+            <button className="text-reddi-navyblue text-sm hover:text-reddi-navyblue/70">
               Guardar y Salir
             </button>
             <button 
@@ -176,7 +176,7 @@ export default function OrderReviewPage() {
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <span>📎</span>
                     <span>{attachment}</span>
-                    <button className="text-blue-600 hover:text-blue-700 ml-auto">
+                    <button className="text-reddi-navyblue hover:text-reddi-navyblue/70 ml-auto">
                       Descargar
                     </button>
                   </div>
@@ -221,7 +221,7 @@ export default function OrderReviewPage() {
                 <label className="block text-sm font-medium text-gray-500 mb-1">
                   Enviado desde
                 </label>
-                <div className="text-sm text-blue-600">pedidos@finhshop.com</div>
+                <div className="text-sm text-reddi-navyblue">pedidos@finhshop.com</div>
               </div>
             </div>
 
@@ -310,7 +310,7 @@ export default function OrderReviewPage() {
               </button>
               <button 
                 onClick={handleAccept}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="px-6 py-2 bg-reddi-navyblue text-white rounded-md hover:bg-reddi-navyblue/80"
               >
                 ACEPTAR PEDIDO
               </button>

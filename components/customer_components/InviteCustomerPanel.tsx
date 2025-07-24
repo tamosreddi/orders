@@ -75,6 +75,7 @@ export function InviteCustomerPanel({
   const [newLabelColor, setNewLabelColor] = useState('#FEF3C7');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Generate business code when business name changes
   useEffect(() => {
@@ -167,25 +168,49 @@ export function InviteCustomerPanel({
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setSaveError(null); // Clear any previous errors
+    
     try {
-      // Convert to legacy format for API compatibility
+      // Convert to CreateCustomerData format for API compatibility
       const primaryContact = businessData.contacts[0];
-      const legacyData: InviteBusinessData = {
-        ...businessData,
+      
+      console.log('🎯 [InvitePanel] Starting', action, 'operation');
+      console.log('🎯 [InvitePanel] Business data:', businessData);
+      console.log('🎯 [InvitePanel] Primary contact:', primaryContact);
+      
+      const customerData: InviteBusinessData = {
+        // Business Information (maps to CreateCustomerData)
+        businessName: businessData.businessName,
+        businessCode: businessData.businessCode,
+        businessLocation: businessData.businessLocation,
+        businessLogo: businessData.businessLogo,
+        labels: businessData.labels,
+        contacts: businessData.contacts,
+        
+        // Primary contact info (for CreateCustomerData compatibility)
         customerName: primaryContact.name,
-        customerCode: businessData.businessCode,
-        avatar: businessData.businessLogo,
         phone: primaryContact.phone,
         email: primaryContact.email,
-        preferredContact: primaryContact.preferredContact
+        preferredContact: primaryContact.preferredContact,
+        
+        // Legacy compatibility fields
+        customerCode: businessData.businessCode, // Same as businessCode
+        avatar: businessData.businessLogo        // Same as businessLogo
       };
 
+      console.log('🎯 [InvitePanel] Converted customer data:', customerData);
+
       if (action === 'invite') {
-        await onInviteCustomer(legacyData);
+        console.log('🎯 [InvitePanel] Calling onInviteCustomer...');
+        await onInviteCustomer(customerData);
       } else {
-        await onSaveCustomer(legacyData);
+        console.log('🎯 [InvitePanel] Calling onSaveCustomer...');
+        await onSaveCustomer(customerData);
       }
+      
+      console.log('🎯 [InvitePanel] Operation successful, closing panel...');
       onClose();
+      
       // Reset form
       setBusinessData({
         businessName: '',
@@ -202,8 +227,20 @@ export function InviteCustomerPanel({
           canPlaceOrders: true
         }]
       });
-    } catch (error) {
-      console.error(`Failed to ${action} business:`, error);
+      setSaveError(null);
+    } catch (error: any) {
+      console.error(`🚨 [InvitePanel] Failed to ${action} business:`, error);
+      
+      // Show user-friendly error message
+      let errorMessage = `Failed to ${action} business. Please try again.`;
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      setSaveError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -652,6 +689,27 @@ export function InviteCustomerPanel({
               <h3 className="text-body font-semibold text-text-default">
                 Actions
               </h3>
+              
+              {/* Error Message */}
+              {saveError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <X className="h-4 w-4 text-red-400" />
+                    </div>
+                    <div className="ml-2">
+                      <p className="text-sm text-red-800">{saveError}</p>
+                    </div>
+                    <button
+                      onClick={() => setSaveError(null)}
+                      className="ml-auto text-red-400 hover:text-red-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               <div className="space-y-3">
                 <button 
                   onClick={() => handleSubmit('invite')}
@@ -665,7 +723,14 @@ export function InviteCustomerPanel({
                   disabled={isLoading}
                   className="w-full py-3 px-4 bg-blue-600 text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? 'Saving Business...' : 'Save Business'}
+                  {isLoading ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Saving Business...</span>
+                    </div>
+                  ) : (
+                    'Save Business'
+                  )}
                 </button>
                 <button 
                   onClick={onClose}

@@ -21,7 +21,8 @@
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
       "Bash(npm test)",
-      "WebFetch(domain:ai.pydantic.dev)"
+      "WebFetch(domain:ai.pydantic.dev)",
+      "mcp__supabase__execute_sql"
     ],
     "deny": []
   },

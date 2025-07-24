@@ -1,5 +1,5 @@
-import { supabase } from './client';
-import type { Database } from './types';
+import { supabase } from '../supabase/client';
+import type { Database } from '../supabase/types';
 import { Customer, CustomerLabel } from '../../types/customer';
 
 /**
@@ -130,7 +130,7 @@ export async function getCustomers(): Promise<Customer[]> {
       .order('created_at', { ascending: false });
 
     if (customersError) {
-      throw new Error(`Failed to fetch customers: ${customersError.message}`);
+      throw handleSupabaseError(customersError);
     }
 
     if (!customers || customers.length === 0) {
@@ -183,7 +183,10 @@ export async function getCustomers(): Promise<Customer[]> {
 
   } catch (error) {
     console.error('Error fetching customers:', error);
-    throw error;
+    if (error instanceof CustomerError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
   }
 }
 
@@ -205,7 +208,7 @@ export async function getCustomerById(customerId: string): Promise<Customer | nu
       if (customerError.code === 'PGRST116') {
         return null; // Customer not found
       }
-      throw new Error(`Failed to fetch customer: ${customerError.message}`);
+      throw handleSupabaseError(customerError);
     }
 
     // Get labels for this customer
@@ -242,7 +245,10 @@ export async function getCustomerById(customerId: string): Promise<Customer | nu
 
   } catch (error) {
     console.error('Error fetching customer by ID:', error);
-    throw error;
+    if (error instanceof CustomerError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
   }
 }
 
@@ -264,7 +270,7 @@ export async function getCustomerByCode(customerCode: string): Promise<Customer 
       if (customerError.code === 'PGRST116') {
         return null; // Customer not found
       }
-      throw new Error(`Failed to fetch customer: ${customerError.message}`);
+      throw handleSupabaseError(customerError);
     }
 
     // Get labels for this customer  
@@ -301,7 +307,10 @@ export async function getCustomerByCode(customerCode: string): Promise<Customer 
 
   } catch (error) {
     console.error('Error fetching customer by code:', error);
-    throw error;
+    if (error instanceof CustomerError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
   }
 }
 
@@ -336,14 +345,17 @@ export async function updateCustomer(customerId: string, updates: Partial<Custom
       .eq('distributor_id', distributorId);
 
     if (error) {
-      throw new Error(`Failed to update customer: ${error.message}`);
+      throw handleSupabaseError(error);
     }
 
     // TODO: Handle label updates if needed
 
   } catch (error) {
     console.error('Error updating customer:', error);
-    throw error;
+    if (error instanceof CustomerError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
   }
 }
 
@@ -395,11 +407,11 @@ export async function createCustomer(
   shouldSendInvite: boolean = true
 ): Promise<Customer> {
   try {
-    console.log('🎯 [Supabase] createCustomer called with:', customerData);
-    console.log('🎯 [Supabase] shouldSendInvite:', shouldSendInvite);
+    console.log('🎯 [API] createCustomer called with:', customerData);
+    console.log('🎯 [API] shouldSendInvite:', shouldSendInvite);
     
     const distributorId = getCurrentDistributorId();
-    console.log('🎯 [Supabase] Using distributor ID:', distributorId);
+    console.log('🎯 [API] Using distributor ID:', distributorId);
 
     // Prepare customer data for insertion
     const customerInsert: CustomerInsert = {
@@ -413,15 +425,16 @@ export async function createCustomer(
       avatar_url: customerData.businessLogo, // Use businessLogo (more descriptive)
       status: 'NO_ORDERS_YET',
       invitation_status: shouldSendInvite ? 'PENDING' : 'ACTIVE',
-      joined_date: new Date().toISOString().split('T')[0],
+      joined_date: new Date().toISOString(),
       total_orders: 0,
       total_spent: 0
     };
 
-    console.log('🎯 [Supabase] customerInsert prepared:', customerInsert);
+    console.log('🎯 [API] customerInsert prepared:', customerInsert);
+    console.log('🎯 [API] customerInsert JSON:', JSON.stringify(customerInsert, null, 2));
 
     // Insert customer
-    console.log('🎯 [Supabase] Inserting customer into database...');
+    console.log('🎯 [API] Inserting customer into database...');
     const { data: newCustomer, error: customerError } = await supabase
       .from('customers')
       .insert(customerInsert)
@@ -429,11 +442,11 @@ export async function createCustomer(
       .single();
 
     if (customerError) {
-      console.error('🚨 [Supabase] Customer insert failed:', customerError);
+      console.error('🚨 [API] Customer insert failed:', customerError);
       throw handleSupabaseError(customerError);
     }
 
-    console.log('🎯 [Supabase] Customer inserted successfully:', newCustomer);
+    console.log('🎯 [API] Customer inserted successfully:', newCustomer);
 
     // Handle labels if provided
     const processedLabels: CustomerLabel[] = [];

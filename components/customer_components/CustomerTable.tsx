@@ -46,7 +46,7 @@ export function CustomerTable({
       header: ({ table }) => (
         <input
           type="checkbox"
-          className="rounded border-gray-300 text-brand-navy-900 focus:ring-brand-navy-900"
+          className="w-4 h-4 rounded border-gray-300 text-reddi-navyblue focus:ring-reddi-navyblue"
           checked={table.getIsAllRowsSelected()}
           onChange={table.getToggleAllRowsSelectedHandler()}
           aria-label="Select all customers"
@@ -55,7 +55,7 @@ export function CustomerTable({
       cell: ({ row }) => (
         <input
           type="checkbox"
-          className="rounded border-gray-300 text-brand-navy-900 focus:ring-brand-navy-900"
+          className="w-4 h-4 rounded border-gray-300 text-reddi-navyblue focus:ring-reddi-navyblue"
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
           aria-label={`Select customer ${row.original.id}`}

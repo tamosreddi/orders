@@ -23,8 +23,8 @@ export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
         };
       case 'REVIEW':
         return {
-          dotColor: 'bg-blue-500',
-          textColor: 'text-blue-500',
+          dotColor: 'bg-reddi-navyblue',
+          textColor: 'text-reddi-navyblue',
           label: 'En revisión'
         };
       default:

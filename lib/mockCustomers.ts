@@ -1,5 +1,15 @@
 import { Customer, CustomerLabel, CustomerStatus, CustomerInvitationStatus } from '../types/customer';
 
+/**
+ * @deprecated This file contains legacy mock customer data and functions.
+ * 
+ * ⚠️  DEPRECATION NOTICE:
+ * Customer operations have been moved to /lib/api/customers.ts which uses Supabase.
+ * This file is kept only for backward compatibility with orders and other non-customer features.
+ * 
+ * DO NOT USE the customer functions in this file - use /lib/api/customers.ts instead.
+ */
+
 const customerNames = [
   'Noodle Bar', 'Okuneva Restaurant', 'Ryan and Troy', 'Terrase Dine', 'Tim Dim Sum',
   'Wonton Palace', 'Sakura Sushi', 'Pasta Milano', 'Burger House', 'Taco Libre',
@@ -117,29 +127,45 @@ export const mockCustomers: Customer[] = Array.from({ length: 20 }, (_, index) =
   };
 });
 
-// TODO: Replace with Supabase data fetching
+/**
+ * @deprecated Use /lib/api/customers.ts instead
+ * DEPRECATED: Replace with Supabase data fetching
+ */
 export const getCustomers = async (): Promise<Customer[]> => {
+  console.warn('⚠️  DEPRECATED: getCustomers from mockCustomers.ts is deprecated. Use /lib/api/customers.ts instead.');
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 100));
   return mockCustomers;
 };
 
-// TODO: Replace with Supabase query
+/**
+ * @deprecated Use /lib/api/customers.ts instead
+ * DEPRECATED: Replace with Supabase query
+ */
 export const getCustomerById = async (customerId: string): Promise<Customer | null> => {
+  console.warn('⚠️  DEPRECATED: getCustomerById from mockCustomers.ts is deprecated. Use /lib/api/customers.ts instead.');
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 100));
   return mockCustomers.find(c => c.id === customerId) || null;
 };
 
-// TODO: Replace with Supabase query
+/**
+ * @deprecated Use /lib/api/customers.ts instead
+ * DEPRECATED: Replace with Supabase query
+ */
 export const getCustomerByCode = async (customerCode: string): Promise<Customer | null> => {
+  console.warn('⚠️  DEPRECATED: getCustomerByCode from mockCustomers.ts is deprecated. Use /lib/api/customers.ts instead.');
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 100));
   return mockCustomers.find(c => c.code === customerCode) || null;
 };
 
-// TODO: Replace with Supabase update
+/**
+ * @deprecated Use /lib/api/customers.ts instead
+ * DEPRECATED: Replace with Supabase update
+ */
 export const updateCustomer = async (customerId: string, updates: Partial<Customer>): Promise<void> => {
+  console.warn('⚠️  DEPRECATED: updateCustomer from mockCustomers.ts is deprecated. Use /lib/api/customers.ts instead.');
   // Simulate API call
   await new Promise(resolve => setTimeout(resolve, 500));
   const customer = mockCustomers.find(c => c.id === customerId);
@@ -148,6 +174,10 @@ export const updateCustomer = async (customerId: string, updates: Partial<Custom
   }
 };
 
+/**
+ * @deprecated Use CreateCustomerData from /lib/api/customers.ts instead
+ * This interface is kept for backward compatibility only.
+ */
 export interface CreateCustomerData {
   customerName: string;
   businessName: string;
@@ -160,8 +190,12 @@ export interface CreateCustomerData {
   labels: CustomerLabel[];
 }
 
-// TODO: Replace with Supabase insert
+/**
+ * @deprecated Use /lib/api/customers.ts instead
+ * DEPRECATED: Replace with Supabase insert
+ */
 export const createCustomer = async (customerData: CreateCustomerData, shouldSendInvite: boolean = true): Promise<Customer> => {
+  console.warn('⚠️  DEPRECATED: createCustomer from mockCustomers.ts is deprecated. Use /lib/api/customers.ts instead.');
   // Simulate API call
   await new Promise(resolve => setTimeout(resolve, 800));
   

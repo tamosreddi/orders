@@ -48,13 +48,15 @@ export function NavigationSidebar({ items, isCollapsed, onToggleCollapsed }: Nav
               height={44}
               className="w-9 h-auto object-contain"
             />
-            <Image
-              src="/logos/Reddi_green_name.png"
-              alt="Reddi"
-              width={90}
-              height={32}
-              className="h-7 w-auto ml-3"
-            />
+            <div className="ml-3 h-7 w-24 overflow-hidden flex items-center">
+              <Image
+                src="/logos/reddi_white.png"
+                alt="Reddi"
+                width={120}
+                height={120}
+                className="w-full h-auto object-cover scale-110"
+              />
+            </div>
           </div>
         )}
         

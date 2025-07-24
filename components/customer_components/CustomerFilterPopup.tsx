@@ -102,7 +102,7 @@ export function CustomerFilterPopup({
                   type="checkbox"
                   checked={localFilters.status?.includes(option.value) || false}
                   onChange={() => handleStatusChange(option.value)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                  className="rounded border-gray-300 text-reddi-navyblue focus:ring-reddi-navyblue mr-2"
                 />
                 <span className="text-sm text-gray-700">{option.label}</span>
               </label>
@@ -120,7 +120,7 @@ export function CustomerFilterPopup({
                   type="checkbox"
                   checked={localFilters.labels?.includes(label.name) || false}
                   onChange={() => handleLabelChange(label.name)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                  className="rounded border-gray-300 text-reddi-navyblue focus:ring-reddi-navyblue mr-2"
                 />
                 <div className="flex items-center">
                   <div

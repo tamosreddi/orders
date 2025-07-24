@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Customer, CustomerFilterState } from '../../types/customer';
-import { getCustomers, updateCustomer, createCustomer, CreateCustomerData } from '../../lib/supabase/customers';
+import { getCustomers, updateCustomer, createCustomer, CreateCustomerData, CustomerError } from '../../lib/api/customers';
 import { RowSelectionState } from '@tanstack/react-table';
 
 // Component imports
@@ -27,6 +27,16 @@ export default function CustomersPage() {
     tab: 'ACTIVE',
     search: ''
   });
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  // Show notification and auto-hide after 5 seconds
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
   // Load customers on component mount
   useEffect(() => {
@@ -138,26 +148,55 @@ export default function CustomersPage() {
       setFilters(prev => ({ ...prev, tab: 'PENDING' }));
       setCurrentPage(1);
       
+      // Show success notification
+      showNotification('success', `Invitation sent to ${newCustomer.name}! They will appear in the Pending tab.`);
+      
       setIsInvitePanelOpen(false);
     } catch (error) {
       console.error('Failed to invite customer:', error);
-      throw error;
+      
+      // Show user-friendly error message
+      if (error instanceof CustomerError) {
+        showNotification('error', error.message);
+      } else {
+        showNotification('error', 'Failed to invite customer. Please try again.');
+      }
+      
+      throw error; // Re-throw for panel error handling
     }
   };
 
   const handleSaveCustomer = async (customerData: CreateCustomerData) => {
     try {
+      console.log('🎯 [CustomersPage] handleSaveCustomer called with:', customerData);
+      
       const newCustomer = await createCustomer(customerData, false); // Don't send invite
+      console.log('🎯 [CustomersPage] createCustomer returned:', newCustomer);
+      
       setCustomers([...customers, newCustomer]);
       
       // Switch to Active tab to show the saved customer
       setFilters(prev => ({ ...prev, tab: 'ACTIVE' }));
       setCurrentPage(1);
       
+      // Show success notification
+      showNotification('success', `${newCustomer.name} has been saved successfully!`);
+      console.log('🎯 [CustomersPage] Save operation completed successfully');
+      
       setIsInvitePanelOpen(false);
     } catch (error) {
-      console.error('Failed to save customer:', error);
-      throw error;
+      console.error('🚨 [CustomersPage] Failed to save customer:', error);
+      
+      // Show user-friendly error message
+      if (error instanceof CustomerError) {
+        console.error('🚨 [CustomersPage] CustomerError:', error.message, error.code);
+        showNotification('error', error.message);
+      } else {
+        console.error('🚨 [CustomersPage] Unknown error:', error);
+        showNotification('error', 'Failed to save customer. Please try again.');
+      }
+      
+      throw error; // Re-throw for panel error handling
     }
   };
 
@@ -178,6 +217,26 @@ export default function CustomersPage() {
             CLIENTES
           </h1>
         </div>
+
+        {/* Notification */}
+        {notification && (
+          <div className={`mb-6 p-4 rounded-md ${
+            notification.type === 'success' 
+              ? 'bg-green-50 border border-green-200 text-green-800' 
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{notification.message}</span>
+              <button 
+                onClick={() => setNotification(null)}
+                className="ml-4 text-gray-400 hover:text-gray-600"
+                aria-label="Close notification"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab Filter Bar and Action Buttons */}
         <div className="mb-6">
