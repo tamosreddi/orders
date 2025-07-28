@@ -243,9 +243,9 @@ export function MessageThread({
 
       {/* Message Input */}
       <div className="border-t border-border-subtle p-4">
-        <div className="flex items-end space-x-3">
+        <div className="flex items-center space-x-3">
           {/* Attachment Button */}
-          <button className="p-2 text-text-muted hover:text-text-default transition-colors">
+          <button className="flex items-center justify-center w-12 h-12 text-text-muted hover:text-text-default transition-colors">
             <Paperclip className="w-5 h-5" />
           </button>
           
@@ -258,8 +258,8 @@ export function MessageThread({
               onKeyPress={handleKeyPress}
               placeholder="Type a message..."
               rows={1}
-              className="w-full px-4 py-3 pr-12 border border-border-subtle rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-brand-navy-900 focus:border-transparent transition-all duration-fast"
-              style={{ minHeight: '48px' }}
+              className="w-full h-12 px-4 py-3 pr-12 border border-border-subtle rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-brand-navy-900 focus:border-transparent transition-all duration-fast flex items-center"
+              style={{ minHeight: '48px', maxHeight: '48px' }}
             />
             
             {/* Emoji Button */}
@@ -272,7 +272,7 @@ export function MessageThread({
           <button
             onClick={handleSend}
             disabled={!inputValue.trim()}
-            className="p-3 bg-brand-navy-900 text-white rounded-lg hover:bg-brand-navy-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-fast"
+            className="flex items-center justify-center w-12 h-12 bg-brand-navy-900 text-white rounded-lg hover:bg-brand-navy-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-fast"
           >
             <Send className="w-5 h-5" />
           </button>
