@@ -70,7 +70,7 @@ export default function CustomersPage() {
       const searchTerm = searchValue.toLowerCase();
       filtered = filtered.filter(customer =>
         customer.name.toLowerCase().includes(searchTerm) ||
-        customer.email.toLowerCase().includes(searchTerm) ||
+        customer.email?.toLowerCase().includes(searchTerm) ||
         customer.code.toLowerCase().includes(searchTerm)
       );
     }

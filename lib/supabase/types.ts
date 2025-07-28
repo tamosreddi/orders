@@ -106,7 +106,7 @@ export type Database = {
           business_name: string
           contact_person_name: string | null
           customer_code: string
-          email: string
+          email: string | null
           phone: string | null
           address: string | null
           avatar_url: string | null
@@ -126,7 +126,7 @@ export type Database = {
           business_name: string
           contact_person_name?: string | null
           customer_code: string
-          email: string
+          email: string | null
           phone?: string | null
           address?: string | null
           avatar_url?: string | null
@@ -146,7 +146,7 @@ export type Database = {
           business_name?: string
           contact_person_name?: string | null
           customer_code?: string
-          email?: string
+          email?: string | null
           phone?: string | null
           address?: string | null
           avatar_url?: string | null
@@ -243,6 +243,135 @@ export type Database = {
             columns: ["label_id"]
             isOneToOne: false
             referencedRelation: "customer_labels"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      conversations: {
+        Row: {
+          id: string
+          customer_id: string
+          distributor_id: string
+          channel: 'WHATSAPP' | 'SMS' | 'EMAIL'
+          status: 'ACTIVE' | 'ARCHIVED' | 'CLOSED'
+          last_message_at: string
+          last_message_id: string | null
+          unread_count: number
+          ai_context_summary: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          customer_id: string
+          distributor_id: string
+          channel: 'WHATSAPP' | 'SMS' | 'EMAIL'
+          status?: 'ACTIVE' | 'ARCHIVED' | 'CLOSED'
+          last_message_at?: string
+          last_message_id?: string | null
+          unread_count?: number
+          ai_context_summary?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          customer_id?: string
+          distributor_id?: string
+          channel?: 'WHATSAPP' | 'SMS' | 'EMAIL'
+          status?: 'ACTIVE' | 'ARCHIVED' | 'CLOSED'
+          last_message_at?: string
+          last_message_id?: string | null
+          unread_count?: number
+          ai_context_summary?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_last_message_fkey"
+            columns: ["last_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          content: string
+          is_from_customer: boolean
+          message_type: 'TEXT' | 'IMAGE' | 'AUDIO' | 'FILE' | 'ORDER_CONTEXT'
+          status: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'RECEIVED'
+          attachments: Json[]
+          ai_processed: boolean
+          ai_confidence: number | null
+          ai_extracted_intent: string | null
+          ai_extracted_products: Json | null
+          ai_suggested_responses: Json | null
+          external_message_id: string | null
+          order_context_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          content: string
+          is_from_customer?: boolean
+          message_type?: 'TEXT' | 'IMAGE' | 'AUDIO' | 'FILE' | 'ORDER_CONTEXT'
+          status?: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'RECEIVED'
+          attachments?: Json[]
+          ai_processed?: boolean
+          ai_confidence?: number | null
+          ai_extracted_intent?: string | null
+          ai_extracted_products?: Json | null
+          ai_suggested_responses?: Json | null
+          external_message_id?: string | null
+          order_context_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          content?: string
+          is_from_customer?: boolean
+          message_type?: 'TEXT' | 'IMAGE' | 'AUDIO' | 'FILE' | 'ORDER_CONTEXT'
+          status?: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'RECEIVED'
+          attachments?: Json[]
+          ai_processed?: boolean
+          ai_confidence?: number | null
+          ai_extracted_intent?: string | null
+          ai_extracted_products?: Json | null
+          ai_suggested_responses?: Json | null
+          external_message_id?: string | null
+          order_context_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           }
         ]

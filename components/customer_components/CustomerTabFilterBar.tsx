@@ -88,7 +88,7 @@ export function CustomerTabFilterBar({
         {/* Invite New Customer Button */}
         <button
           onClick={onInviteCustomer}
-          className="flex items-center space-x-2 px-4 py-2 bg-state-success text-white rounded-md text-sm font-medium hover:opacity-90 transition-opacity duration-fast"
+          className="flex items-center space-x-2 px-4 py-2 bg-reddi-navyblue text-white rounded-md text-sm font-medium hover:opacity-90 transition-opacity duration-fast"
         >
           <Plus className="h-4 w-4" />
           <span>INVITE NEW CUSTOMER</span>

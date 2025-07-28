@@ -10,6 +10,7 @@ module.exports = {
       colors: {
         'reddi-green': '#57BAB5',
         'reddi-navyblue': '#2d4a74',
+        'reddi-yellow': '#F5C122',
         brand: {
           navy: {
             900: '#0B0130',

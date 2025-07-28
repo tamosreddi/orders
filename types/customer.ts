@@ -16,7 +16,7 @@ export interface Customer {
   expectedOrder: string | null; // Maps to expected_order_date in DB
   status: CustomerStatus;
   invitationStatus: CustomerInvitationStatus;
-  email: string;
+  email: string | null;
   phone?: string;
   address?: string;
   joinedDate: string; // Maps to joined_date in DB

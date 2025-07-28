@@ -22,7 +22,7 @@ export default function MessagesPage() {
   const [searchValue, setSearchValue] = useState('');
   
   // TODO: Get distributor ID from auth context or session
-  const distributorId = 'dist_123'; // This should come from actual auth
+  const distributorId = process.env.NEXT_PUBLIC_DEMO_DISTRIBUTOR_ID || '550e8400-e29b-41d4-a716-446655440000';
 
   // Use hooks for data management
   const {

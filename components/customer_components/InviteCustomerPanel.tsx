@@ -371,9 +371,6 @@ export function InviteCustomerPanel({
                 <div className="space-y-4 pl-4 border-l-2 border-surface-border">
                   {/* Business Logo */}
                   <div className="space-y-4">
-                    <h4 className="text-caption font-medium text-text-muted">
-                      Business Logo
-                    </h4>
                     <div className="flex items-center space-x-4">
                       <div className="relative">
                         <Image
@@ -606,7 +603,7 @@ export function InviteCustomerPanel({
                             onClick={() => handleContactInputChange(contact.id, 'preferredContact', 'phone')}
                             className={`px-3 py-2 text-xs rounded-md transition-colors duration-fast ${
                               contact.preferredContact === 'phone'
-                                ? 'bg-state-success text-white'
+                                ? 'bg-reddi-yellow text-black'
                                 : 'bg-surface-alt text-text-muted hover:bg-surface-border'
                             }`}
                           >
@@ -636,7 +633,7 @@ export function InviteCustomerPanel({
                             onClick={() => handleContactInputChange(contact.id, 'preferredContact', 'email')}
                             className={`px-3 py-2 text-xs rounded-md transition-colors duration-fast ${
                               contact.preferredContact === 'email'
-                                ? 'bg-state-success text-white'
+                                ? 'bg-reddi-yellow text-black'
                                 : 'bg-surface-alt text-text-muted hover:bg-surface-border'
                             }`}
                           >
@@ -686,9 +683,6 @@ export function InviteCustomerPanel({
 
             {/* Actions */}
             <div className="space-y-4 pt-4 border-t border-surface-border">
-              <h3 className="text-body font-semibold text-text-default">
-                Actions
-              </h3>
               
               {/* Error Message */}
               {saveError && (
@@ -711,6 +705,7 @@ export function InviteCustomerPanel({
               )}
               
               <div className="space-y-3">
+                {/*
                 <button 
                   onClick={() => handleSubmit('invite')}
                   disabled={isLoading}
@@ -718,10 +713,11 @@ export function InviteCustomerPanel({
                 >
                   {isLoading ? 'Sending Invitation...' : 'Send Invitation'}
                 </button>
+                */}
                 <button 
                   onClick={() => handleSubmit('save')}
                   disabled={isLoading}
-                  className="w-full py-3 px-4 bg-blue-600 text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3 px-4 bg-reddi-navyblue text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center space-x-2">

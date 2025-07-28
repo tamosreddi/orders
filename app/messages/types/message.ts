@@ -13,7 +13,7 @@ export interface Message {
   content: string;
   isFromCustomer: boolean;
   messageType: 'TEXT' | 'IMAGE' | 'AUDIO' | 'FILE' | 'ORDER_CONTEXT';
-  status: 'SENT' | 'DELIVERED' | 'READ';
+  status: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'RECEIVED';
   attachments?: MessageAttachment[];
   
   // AI Processing Fields
@@ -36,7 +36,7 @@ export interface Message {
 }
 
 export type MessageType = 'TEXT' | 'IMAGE' | 'AUDIO' | 'FILE' | 'ORDER_CONTEXT';
-export type MessageStatus = 'SENT' | 'DELIVERED' | 'READ';
+export type MessageStatus = 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'RECEIVED';
 
 export interface AIResponse {
   suggestions: string[];

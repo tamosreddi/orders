@@ -60,7 +60,7 @@ export function OrderActionButtons({
         className={`
           px-4 py-2 text-sm font-medium rounded-md transition-all duration-fast
           ${hasSelection && hasUnconfirmedSelection
-            ? 'bg-state-success text-white hover:opacity-90'
+            ? 'bg-reddi-navyblue text-white hover:opacity-90'
             : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           }
         `}

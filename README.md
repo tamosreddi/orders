@@ -290,7 +290,91 @@ examples/
 - Include project-specific rules
 - Define coding standards
 
+## WhatsApp Integration Setup
+
+This project includes a Twilio WhatsApp integration for receiving messages directly in the Messages page.
+
+### Prerequisites
+
+1. **Twilio Account**: Sign up at [twilio.com](https://twilio.com)
+2. **WhatsApp Sandbox**: Enable Twilio's WhatsApp Sandbox in the console
+3. **ngrok** (for local development): Install from [ngrok.com](https://ngrok.com)
+
+### Configuration Steps
+
+1. **Set up environment variables**:
+   
+   Add the following Twilio credentials to your existing `.env` file:
+   ```env
+   TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
+   TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
+   TWILIO_PHONE_NUMBER=+14155238886
+   NEXT_PUBLIC_WEBHOOK_URL=https://yourdomain.com/api/webhooks/twilio
+   ```
+
+2. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
+
+3. **Expose local server with ngrok** (for local testing):
+   ```bash
+   ngrok http 3000
+   ```
+   Copy the HTTPS URL (e.g., `https://abc123.ngrok.io`)
+
+4. **Configure Twilio Webhook**:
+   - Go to Twilio Console → Messaging → Settings → WhatsApp Sandbox
+   - Set webhook URL to: `https://abc123.ngrok.io/api/webhooks/twilio`
+   - Set HTTP method to `POST`
+
+### Testing the Integration
+
+1. **Join the Sandbox**:
+   - Send `join <sandbox-keyword>` to your Twilio Sandbox WhatsApp number
+   - The keyword is found in your Twilio Console
+
+2. **Send a test message**:
+   - Send any message to the Sandbox number
+   - Check the Messages page in the application
+   - The message should appear within 2 seconds
+
+3. **Test order-related messages**:
+   - Send: "I want to order 5 bottles of water"
+   - Send: "Help me place an order"
+   - Send: "What's your catalog?"
+
+### Architecture
+
+The WhatsApp integration consists of:
+
+- **Webhook Handler**: `/app/api/webhooks/twilio/route.ts`
+- **Database Layer**: `/lib/api/whatsapp.ts` 
+- **Utilities**: `/lib/utils/twilio.ts`
+- **Types**: `/types/twilio.ts`
+- **UI Components**: Enhanced `MessageThread.tsx` with WhatsApp indicators
+
+### Features
+
+- ✅ Automatic customer creation from phone numbers
+- ✅ Multi-tenant data isolation (distributor_id)
+- ✅ Real-time message display (2-second polling)
+- ✅ Twilio signature validation for security
+- ✅ WhatsApp-specific UI indicators
+- ✅ External message ID tracking
+- ✅ Support for media attachments
+- ✅ AI processing ready (messages stored for future AI analysis)
+
+### Troubleshooting
+
+1. **Messages not appearing**: Check server logs for webhook errors
+2. **Signature validation fails**: Ensure `NEXT_PUBLIC_WEBHOOK_URL` matches exactly
+3. **Database errors**: Verify Supabase connection and table structure
+4. **Ngrok issues**: Restart ngrok and update webhook URL in Twilio
+
 ## Resources
 
 - [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)
 - [Context Engineering Best Practices](https://www.philschmid.de/context-engineering)
+- [Twilio WhatsApp API Documentation](https://www.twilio.com/docs/whatsapp/api)
+- [Twilio Sandbox Setup Guide](https://www.twilio.com/docs/whatsapp/sandbox)

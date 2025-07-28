@@ -22,7 +22,9 @@
       "Bash(npm run build:*)",
       "Bash(npm test)",
       "WebFetch(domain:ai.pydantic.dev)",
-      "mcp__supabase__execute_sql"
+      "mcp__supabase__execute_sql",
+      "Bash(killall:*)",
+      "Bash(ngrok:*)"
     ],
     "deny": []
   },

@@ -123,9 +123,22 @@ export function MessageThread({
               <h3 className="text-lg font-semibold text-text-default">
                 {conversation.customer.name}
               </h3>
-              <p className="text-sm text-text-muted">
-                {conversation.channel}
-              </p>
+              <div className="flex items-center space-x-2 text-sm text-text-muted">
+                <span>{conversation.channel}</span>
+                {conversation.channel === 'WHATSAPP' && conversation.customer.code.startsWith('WA') && (
+                  <>
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                      WhatsApp
+                    </span>
+                    {/* Show phone number for WhatsApp customers */}
+                    {conversation.customer.name.includes('+') && (
+                      <span className="text-xs text-text-muted font-mono">
+                        {conversation.customer.name.match(/\+\d+/)?.[0]}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
             <div className="flex items-center space-x-1">
               <div className="w-2 h-2 bg-state-success rounded-full"></div>
@@ -187,6 +200,16 @@ export function MessageThread({
                       <div className="mt-2 text-xs opacity-75">
                         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
                           AI: {Math.round(message.aiConfidence * 100)}%
+                        </span>
+                      </div>
+                    )}
+                    
+                    
+                    {/* AI Extracted Intent Display */}
+                    {message.aiExtractedIntent && (
+                      <div className="mt-2 text-xs opacity-75">
+                        <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
+                          Intent: {message.aiExtractedIntent}
                         </span>
                       </div>
                     )}
