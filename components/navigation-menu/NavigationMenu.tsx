@@ -5,6 +5,7 @@ import { NavigationSidebar } from './NavigationSidebar';
 import { MobileNavigation } from './MobileNavigation';
 import { useNavigation } from './NavigationContext';
 import { NavigationItem } from './types';
+import { useHasUnreadMessages } from '@/lib/hooks/useHasUnreadMessages';
 
 const baseNavigationItems: NavigationItem[] = [
   {
@@ -52,11 +53,13 @@ const baseNavigationItems: NavigationItem[] = [
 export function NavigationMenu() {
   const { navigationState, toggleCollapsed, toggleMobileMenu, closeMobileMenu } = useNavigation();
   const pathname = usePathname();
+  const { hasUnreadMessages } = useHasUnreadMessages();
 
-  // Create navigation items with dynamic active state based on current route
+  // Create navigation items with dynamic active state and notification state
   const navigationItems = baseNavigationItems.map(item => ({
     ...item,
-    isActive: pathname.startsWith(item.href) && item.href !== '/'
+    isActive: pathname.startsWith(item.href) && item.href !== '/',
+    hasNotification: item.id === 'messages' ? hasUnreadMessages : false
   }));
 
   return (

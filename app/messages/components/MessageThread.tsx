@@ -124,8 +124,7 @@ export function MessageThread({
                 {conversation.customer.name}
               </h3>
               <div className="flex items-center space-x-2 text-sm text-text-muted">
-                <span>{conversation.channel}</span>
-                {conversation.channel === 'WHATSAPP' && conversation.customer.code.startsWith('WA') && (
+                {conversation.channel === 'WHATSAPP' && (
                   <>
                     <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                       WhatsApp
@@ -138,11 +137,17 @@ export function MessageThread({
                     )}
                   </>
                 )}
+                {conversation.channel === 'SMS' && (
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                    SMS
+                  </span>
+                )}
+                {conversation.channel === 'EMAIL' && (
+                  <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                    Email
+                  </span>
+                )}
               </div>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-state-success rounded-full"></div>
-              <span className="text-xs text-text-muted">Online</span>
             </div>
           </div>
         </div>

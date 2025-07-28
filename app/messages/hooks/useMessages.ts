@@ -139,6 +139,33 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
     }
   }, [supabase, distributorId]);
 
+  // Mark messages as read
+  const markAsRead = useCallback(async (messageIds: string[]) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ 
+          status: 'READ' as const,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', messageIds);
+
+      if (error) {
+        throw new Error(`Failed to mark messages as read: ${(error as any)?.message || 'Unknown error'}`);
+      }
+
+      // Update local state
+      setMessages(prev => prev.map(msg => 
+        messageIds.includes(msg.id) ? { ...msg, status: 'READ' as const } : msg
+      ));
+      
+      // Trigger global unread count refresh for navigation
+      window.dispatchEvent(new CustomEvent('refreshUnreadCount'));
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  }, [supabase]);
+
   // Load messages for a specific conversation with RLS filtering
   const loadMessages = useCallback(async (convId: string) => {
     try {
@@ -194,13 +221,39 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
       }));
 
       setMessages(transformedMessages);
+
+      // Automatically mark unread customer messages as read when conversation is viewed
+      const unreadCustomerMessages = transformedMessages.filter(
+        msg => msg.isFromCustomer && msg.status !== 'READ'
+      );
+
+      if (unreadCustomerMessages.length > 0) {
+        const messageIds = unreadCustomerMessages.map(msg => msg.id);
+        await markAsRead(messageIds);
+        
+        // Reset unread count in conversation
+        await supabase
+          .from('conversations')
+          .update({ 
+            unread_count: 0,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', convId)
+          .eq('distributor_id', distributorId);
+
+        // Refresh conversations to update unread count in UI
+        await loadConversations();
+        
+        // Trigger global unread count refresh for navigation
+        window.dispatchEvent(new CustomEvent('refreshUnreadCount'));
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
       setMessagesError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setMessagesLoading(false);
     }
-  }, [supabase, distributorId]);
+  }, [supabase, distributorId, markAsRead, loadConversations]);
 
   // Send a new message
   const sendMessage = useCallback(async (data: SendMessageData) => {
@@ -264,35 +317,15 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
 
       // Refresh conversations to update last message
       await loadConversations(); // Background update
+      
+      // Trigger global unread count refresh for navigation
+      window.dispatchEvent(new CustomEvent('refreshUnreadCount'));
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
     }
   }, [supabase, distributorId, conversationId, loadConversations]);
 
-  // Mark messages as read
-  const markAsRead = useCallback(async (messageIds: string[]) => {
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ 
-          status: 'READ' as const,
-          updated_at: new Date().toISOString()
-        })
-        .in('id', messageIds);
-
-      if (error) {
-        throw new Error(`Failed to mark messages as read: ${(error as any)?.message || 'Unknown error'}`);
-      }
-
-      // Update local state
-      setMessages(prev => prev.map(msg => 
-        messageIds.includes(msg.id) ? { ...msg, status: 'READ' as const } : msg
-      ));
-    } catch (error) {
-      console.error('Error marking messages as read:', error);
-    }
-  }, [supabase]);
 
   // Create a new conversation
   const createConversation = useCallback(async (

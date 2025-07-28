@@ -46,7 +46,12 @@ export function NavigationItem({ item, isCollapsed, isMobile = false }: Navigati
 
   const content = (
     <>
-      <IconComponent size={24} className="flex-shrink-0" />
+      <div className="relative flex-shrink-0">
+        <IconComponent size={24} />
+        {item.hasNotification && (
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+        )}
+      </div>
       {(!isCollapsed || isMobile) && (
         <span className="font-light text-base">{item.label}</span>
       )}

@@ -5,6 +5,7 @@ export interface NavigationItem {
   icon: string;
   isActive?: boolean;
   isDisabled?: boolean;
+  hasNotification?: boolean;
 }
 
 export interface User {
