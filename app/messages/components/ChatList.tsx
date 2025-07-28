@@ -143,12 +143,8 @@ export function ChatList({
 
       {/* Footer with Status */}
       <div className="p-4 border-t border-border-subtle">
-        <div className="flex items-center justify-between text-xs text-text-muted">
+        <div className="flex items-center justify-center text-xs text-text-muted">
           <span>{conversations.length} conversation{conversations.length !== 1 ? 's' : ''}</span>
-          <span className="flex items-center space-x-1">
-            <div className="w-2 h-2 bg-state-success rounded-full"></div>
-            <span>Online</span>
-          </span>
         </div>
       </div>
     </div>
