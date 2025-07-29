@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Conversation } from './types/conversation';
 import { Message } from './types/message';
 
@@ -16,6 +16,7 @@ import { useAIAgent } from './hooks/useAIAgent';
 
 export default function MessagesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // State management
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -48,16 +49,36 @@ export default function MessagesPage() {
     detectOrderIntent
   } = useAIAgent({ distributorId });
 
-  // Auto-select the most recent conversation when conversations are loaded
+  // Handle customer parameter from URL to find/create conversation
   useEffect(() => {
-    if (conversations.length > 0 && !selectedConversation && !searchValue) {
+    const customerId = searchParams.get('customer');
+    if (customerId && conversations.length > 0) {
+      // Find existing conversation for this customer
+      const customerConversation = conversations.find(conv => conv.customerId === customerId);
+      if (customerConversation) {
+        setSelectedConversation(customerConversation.id);
+      } else {
+        // Create new conversation for this customer
+        createConversation(customerId, 'WHATSAPP').then((conversationId) => {
+          setSelectedConversation(conversationId);
+        }).catch(error => {
+          console.error('Failed to create conversation:', error);
+        });
+      }
+    }
+  }, [searchParams, conversations, createConversation]);
+
+  // Auto-select the most recent conversation when conversations are loaded (if no customer param)
+  useEffect(() => {
+    const customerId = searchParams.get('customer');
+    if (conversations.length > 0 && !selectedConversation && !searchValue && !customerId) {
       // Find the most recent conversation (sorted by lastMessageAt)
       const mostRecentConversation = conversations.reduce((latest, current) => 
         new Date(current.lastMessageAt) > new Date(latest.lastMessageAt) ? current : latest
       );
       setSelectedConversation(mostRecentConversation.id);
     }
-  }, [conversations, selectedConversation, searchValue]);
+  }, [conversations, selectedConversation, searchValue, searchParams]);
 
   // Filter conversations based on search
   const filteredConversations = useMemo(() => {

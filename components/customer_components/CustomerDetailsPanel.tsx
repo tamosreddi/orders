@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Plus, Trash2, Edit2, Save, XCircle } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Customer, CustomerLabel, PREDEFINED_LABELS } from '../../types/customer';
 import { CustomerStatusBadge } from './CustomerStatusBadge';
 import { updateCustomer } from '../../lib/api/customers';
@@ -62,6 +63,7 @@ export function CustomerDetailsPanel({
   onClose, 
   onCustomerUpdate 
 }: CustomerDetailsPanelProps) {
+  const router = useRouter();
   // Label editing state
   const [isEditingLabels, setIsEditingLabels] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
@@ -231,6 +233,16 @@ export function CustomerDetailsPanel({
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleStartChat = () => {
+    if (!customer) return;
+    
+    // Navigate to messages page with customer parameter
+    router.push(`/messages?customer=${customer.id}`);
+    
+    // Close the customer details panel
+    onClose();
   };
 
   const panelContent = (
@@ -528,7 +540,10 @@ export function CustomerDetailsPanel({
               ) : (
                 // Normal mode buttons
                 <>
-                  <button className="w-full py-3 px-4 bg-state-success text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast">
+                  <button 
+                    onClick={handleStartChat}
+                    className="w-full py-3 px-4 bg-state-success text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast"
+                  >
                     Start Chat
                   </button>
                   <button className="w-full py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast">
