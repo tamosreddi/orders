@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Order, FilterState } from '../../types/order';
 import { getOrders } from '../../lib/mockOrders';
 import { RowSelectionState } from '@tanstack/react-table';
@@ -11,7 +12,8 @@ import { TabFilterBar } from '../../components/TabFilterBar';
 import { OrderActionButtons } from '../../components/OrderActionButtons';
 import { TablePagination } from '../../components/TablePagination';
 
-export default function OrdersPage() {
+function OrdersContent() {
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -42,6 +44,14 @@ export default function OrdersPage() {
   const filteredOrders = useMemo(() => {
     let filtered = orders;
 
+    // Apply customer filter from URL parameter
+    const customerParam = searchParams.get('customer');
+    if (customerParam) {
+      filtered = filtered.filter(order => 
+        order.customer.code === customerParam
+      );
+    }
+
     // Apply tab filter
     if (filters.tab === 'PENDING') {
       filtered = filtered.filter(order => order.status === 'PENDING' || order.status === 'REVIEW');
@@ -61,7 +71,7 @@ export default function OrdersPage() {
     }
 
     return filtered;
-  }, [orders, filters.tab, searchValue]);
+  }, [orders, filters.tab, searchValue, searchParams]);
 
   // Paginated orders
   const paginatedOrders = useMemo(() => {
@@ -175,5 +185,13 @@ export default function OrdersPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading orders...</div>}>
+      <OrdersContent />
+    </Suspense>
   );
 }

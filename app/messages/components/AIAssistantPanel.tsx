@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bot, User, ShoppingCart, TrendingUp, Star, Clock, ArrowRight } from 'lucide-react';
 import { Conversation } from '../types/conversation';
 import { Message } from '../types/message';
@@ -24,6 +25,7 @@ export function AIAssistantPanel({
   onViewCustomerOrders
 }: AIAssistantPanelProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const router = useRouter();
   
   // Fetch real customer order statistics
   const { orderStats, loading: orderStatsLoading } = useCustomerOrders(conversation?.customerId || null);
@@ -126,6 +128,18 @@ export function AIAssistantPanel({
   };
 
   const hasPotentialOrder = detectPotentialOrders();
+
+  // Handle View Order History button click
+  const handleViewOrderHistory = () => {
+    if (!orderStats || orderStats.totalOrders === 0) {
+      // Simple alert for no orders
+      alert('This customer has no orders yet.');
+      return;
+    }
+    
+    // Redirect with customer filter
+    router.push(`/orders?customer=${conversation?.customer.code}`);
+  };
 
   return (
     <div className="w-80 border-l border-border-subtle bg-surface-0 flex flex-col h-full">
@@ -310,7 +324,7 @@ export function AIAssistantPanel({
               <span>Create Order</span>
             </button>
             <button
-              onClick={onViewCustomerOrders}
+              onClick={handleViewOrderHistory}
               className="w-full py-2 px-3 border border-border-subtle rounded-lg text-sm hover:bg-surface-alt transition-colors flex items-center justify-center space-x-2"
             >
               <TrendingUp className="w-4 h-4" />
