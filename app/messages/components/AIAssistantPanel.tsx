@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Bot, User, ShoppingCart, TrendingUp, Star, Clock, ArrowRight } from 'lucide-react';
 import { Conversation } from '../types/conversation';
 import { Message } from '../types/message';
@@ -34,8 +35,14 @@ export function AIAssistantPanel({
     return (
       <div className="w-80 border-l border-border-subtle bg-surface-0 p-6">
         <div className="text-center">
-          <div className="w-16 h-16 bg-surface-alt rounded-full mx-auto flex items-center justify-center mb-4">
-            <Bot className="w-8 h-8 text-text-muted" />
+          <div className="w-16 h-16 mx-auto flex items-center justify-center mb-4">
+            <Image
+              src="/logos/bot.png"
+              alt="AI Assistant Bot"
+              width={64}
+              height={64}
+              className="w-16 h-16 object-contain"
+            />
           </div>
           <h3 className="text-lg font-semibold text-text-default mb-2">AI Assistant</h3>
           <p className="text-sm text-text-muted">
@@ -146,7 +153,13 @@ export function AIAssistantPanel({
       {/* Header */}
       <div className="p-4 border-b border-border-subtle">
         <div className="flex items-center space-x-2">
-          <Bot className="w-5 h-5 text-brand-navy-900" />
+          <Image
+            src="/logos/bot.png"
+            alt="AI Assistant Bot"
+            width={20}
+            height={20}
+            className="w-5 h-5 object-contain"
+          />
           <h3 className="text-lg font-semibold text-text-default">AI Assistant</h3>
           {isProcessing && (
             <div className="w-2 h-2 bg-brand-navy-900 rounded-full animate-pulse"></div>
