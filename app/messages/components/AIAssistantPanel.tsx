@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Bot, User, ShoppingCart, TrendingUp, Star, Clock, ArrowRight } from 'lucide-react';
 import { Conversation } from '../types/conversation';
 import { Message } from '../types/message';
+import { useCustomerOrders } from '@/lib/hooks/useCustomerOrders';
 
 interface AIAssistantPanelProps {
   conversationId: string | null;
@@ -23,6 +24,9 @@ export function AIAssistantPanel({
   onViewCustomerOrders
 }: AIAssistantPanelProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Fetch real customer order statistics
+  const { orderStats, loading: orderStatsLoading } = useCustomerOrders(conversation?.customerId || null);
 
   if (!conversationId || !conversation) {
     return (
@@ -76,15 +80,32 @@ export function AIAssistantPanel({
 
   const suggestions = getAISuggestions();
 
-  // Mock customer insights
+  // Get real customer insights from order statistics
   const getCustomerInsights = () => {
+    if (!orderStats) {
+      return {
+        totalOrders: 0,
+        averageOrderValue: 0,
+        lastOrderDate: null,
+        preferredProducts: [],
+        riskLevel: 'Unknown'
+      };
+    }
+
+    // Determine risk level based on order history
+    const getRiskLevel = () => {
+      if (orderStats.totalOrders === 0) return 'New Customer';
+      if (orderStats.totalOrders >= 10) return 'Low';
+      if (orderStats.totalOrders >= 5) return 'Medium';
+      return 'High';
+    };
+
     return {
-      totalOrders: 15,
-      averageOrderValue: 250,
-      lastOrderDate: '2024-01-10',
-      preferredProducts: ['Fresh Vegetables', 'Dairy Products'],
-      riskLevel: 'Low',
-      loyaltyScore: 85
+      totalOrders: orderStats.totalOrders,
+      averageOrderValue: orderStats.averageOrderValue,
+      lastOrderDate: orderStats.lastOrderedDate,
+      preferredProducts: [], // TODO: Could be enhanced with product analysis
+      riskLevel: getRiskLevel()
     };
   };
 
@@ -136,41 +157,80 @@ export function AIAssistantPanel({
             <TrendingUp className="w-4 h-4 mr-2" />
             Customer Insights
           </h4>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="bg-surface-alt rounded p-2 text-center">
-                <div className="font-semibold text-text-default">{customerInsights.totalOrders}</div>
-                <div className="text-text-muted">Total Orders</div>
+          {orderStatsLoading ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-surface-alt rounded p-2 text-center animate-pulse">
+                  <div className="h-4 bg-gray-300 rounded mb-1"></div>
+                  <div className="text-text-muted">Total Orders</div>
+                </div>
+                <div className="bg-surface-alt rounded p-2 text-center animate-pulse">
+                  <div className="h-4 bg-gray-300 rounded mb-1"></div>
+                  <div className="text-text-muted">Avg. Value</div>
+                </div>
               </div>
-              <div className="bg-surface-alt rounded p-2 text-center">
-                <div className="font-semibold text-text-default">${customerInsights.averageOrderValue}</div>
-                <div className="text-text-muted">Avg. Value</div>
+              <div className="text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Last Order:</span>
+                  <div className="h-3 w-16 bg-gray-300 rounded animate-pulse"></div>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Risk Level:</span>
+                  <div className="h-3 w-12 bg-gray-300 rounded animate-pulse"></div>
+                </div>
               </div>
             </div>
-            <div className="text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-text-muted">Last Order:</span>
-                <span className="text-text-default">{customerInsights.lastOrderDate}</span>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-surface-alt rounded p-2 text-center">
+                  <div className="font-semibold text-text-default">{customerInsights.totalOrders}</div>
+                  <div className="text-text-muted">Total Orders</div>
+                </div>
+                <div className="bg-surface-alt rounded p-2 text-center">
+                  <div className="font-semibold text-text-default">${customerInsights.averageOrderValue}</div>
+                  <div className="text-text-muted">Avg. Value</div>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-text-muted">Risk Level:</span>
-                <span className="text-state-success">{customerInsights.riskLevel}</span>
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-text-muted mb-1">Preferred Products:</div>
-              <div className="flex flex-wrap gap-1">
-                {customerInsights.preferredProducts.map((product, index) => (
-                  <span 
-                    key={index}
-                    className="text-xs px-2 py-1 bg-brand-navy-50 text-brand-navy-900 rounded"
-                  >
-                    {product}
+              <div className="text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Last Order:</span>
+                  <span className="text-text-default">
+                    {customerInsights.lastOrderDate 
+                      ? new Date(customerInsights.lastOrderDate).toLocaleDateString()
+                      : 'No orders yet'
+                    }
                   </span>
-                ))}
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted">Risk Level:</span>
+                  <span className={`${
+                    customerInsights.riskLevel === 'Low' ? 'text-state-success' :
+                    customerInsights.riskLevel === 'Medium' ? 'text-yellow-600' :
+                    customerInsights.riskLevel === 'High' ? 'text-state-error' :
+                    'text-text-muted'
+                  }`}>
+                    {customerInsights.riskLevel}
+                  </span>
+                </div>
               </div>
+              {customerInsights.preferredProducts.length > 0 && (
+                <div>
+                  <div className="text-xs text-text-muted mb-1">Preferred Products:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {customerInsights.preferredProducts.map((product, index) => (
+                      <span 
+                        key={index}
+                        className="text-xs px-2 py-1 bg-brand-navy-50 text-brand-navy-900 rounded"
+                      >
+                        {product}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Order Detection Alert */}
@@ -255,12 +315,6 @@ export function AIAssistantPanel({
             >
               <TrendingUp className="w-4 h-4" />
               <span>View Order History</span>
-            </button>
-            <button className="w-full py-2 px-3 border border-border-subtle rounded-lg text-sm hover:bg-surface-alt transition-colors">
-              Send Product Catalog
-            </button>
-            <button className="w-full py-2 px-3 border border-border-subtle rounded-lg text-sm hover:bg-surface-alt transition-colors">
-              Schedule Follow-up
             </button>
           </div>
         </div>
