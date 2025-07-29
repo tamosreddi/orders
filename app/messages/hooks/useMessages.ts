@@ -305,11 +305,12 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
         setMessages(prev => [...prev, transformedMessage]);
       }
 
-      // Update conversation last_message_at
+      // Update conversation last_message_at and last_message_id
       await supabase
         .from('conversations')
         .update({ 
           last_message_at: new Date().toISOString(),
+          last_message_id: newMessage.id,
           updated_at: new Date().toISOString()
         })
         .eq('id', data.conversationId)

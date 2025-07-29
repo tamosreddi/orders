@@ -46,12 +46,12 @@ const EditableField = ({
         type={type}
         value={editableData[field] || ''}
         onChange={(e) => onFieldChange(field, e.target.value)}
-        className="text-body text-text-default bg-surface-alt border border-surface-border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-navy-500 min-w-[200px] text-right"
+        className="text-caption text-text-default bg-surface-alt border border-surface-border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-navy-500 min-w-[240px] text-right"
         disabled={isLoading}
         autoFocus={false}
       />
     ) : (
-      <span className="text-body text-text-default">{value || 'Not provided'}</span>
+      <span className="text-caption text-text-default">{value || 'Not provided'}</span>
     )}
   </div>
 );
@@ -242,7 +242,7 @@ export function CustomerDetailsPanel({
       />
       
       {/* Panel */}
-      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-surface-0 shadow-modal transform transition-transform duration-medium flex flex-col">
+      <div className="absolute right-0 top-0 h-full w-full max-w-lg bg-surface-0 shadow-modal transform transition-transform duration-medium flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-surface-border">
           <h2 className="text-2xl font-semibold text-text-default">
@@ -280,9 +280,6 @@ export function CustomerDetailsPanel({
                   </p>
                   <p className="text-caption text-text-muted">
                     {customer.email}
-                  </p>
-                  <p className="text-caption text-text-muted">
-                    Code: {customer.code}
                   </p>
                 </div>
               </div>
@@ -367,6 +364,11 @@ export function CustomerDetailsPanel({
                 isLoading={isLoading}
                 onFieldChange={handleFieldChange}
               />
+              
+              <div className="flex justify-between items-center">
+                <span className="text-caption text-text-muted">Code</span>
+                <span className="text-caption text-text-default">{customer.code || 'Not provided'}</span>
+              </div>
             </div>
           </div>
 
@@ -380,25 +382,25 @@ export function CustomerDetailsPanel({
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-caption text-text-muted">Total Orders</span>
-                <span className="text-body font-medium text-text-default">{customer.totalOrders}</span>
+                <span className="text-caption text-text-default">{customer.totalOrders}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-caption text-text-muted">Total Spent</span>
-                <span className="text-body text-text-default">
+                <span className="text-caption text-text-default">
                   {formatCurrency(customer.totalSpent)}
                 </span>
               </div>
               {customer.lastOrdered && (
                 <div className="flex justify-between items-center">
                   <span className="text-caption text-text-muted">Last Order</span>
-                  <span className="text-body text-text-default">
+                  <span className="text-caption text-text-default">
                     {formatDate(customer.lastOrdered)}
                   </span>
                 </div>
               )}
               <div className="flex justify-between items-center">
                 <span className="text-caption text-text-muted">Joined</span>
-                <span className="text-body text-text-default">
+                <span className="text-caption text-text-default">
                   {formatDate(customer.joinedDate)}
                 </span>
               </div>

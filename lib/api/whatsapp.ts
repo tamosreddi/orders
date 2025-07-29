@@ -386,6 +386,7 @@ export async function createMessage(messageData: {
         .from('conversations')
         .update({ 
           last_message_at: new Date().toISOString(),
+          last_message_id: newMessage.id,
           unread_count: (currentConv?.unread_count || 0) + 1,
           updated_at: new Date().toISOString()
         })
@@ -396,11 +397,12 @@ export async function createMessage(messageData: {
         // Don't throw error here as message was created successfully
       }
     } else {
-      // Just update last_message_at for outbound messages
+      // Just update last_message_at and last_message_id for outbound messages
       const { error: updateError } = await supabase
         .from('conversations')
         .update({ 
           last_message_at: new Date().toISOString(),
+          last_message_id: newMessage.id,
           updated_at: new Date().toISOString()
         })
         .eq('id', messageData.conversationId);
