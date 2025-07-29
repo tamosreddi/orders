@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Customer, CustomerLabel, PREDEFINED_LABELS } from '../../types/customer';
 import { CustomerStatusBadge } from './CustomerStatusBadge';
-import { updateCustomer } from '../../lib/api/customers';
+import { updateCustomer, addCustomerLabel, removeCustomerLabel } from '../../lib/api/customers';
 
 interface CustomerDetailsPanelProps {
   customer: Customer | null;
@@ -68,6 +68,8 @@ export function CustomerDetailsPanel({
   const [isEditingLabels, setIsEditingLabels] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState('#FEF3C7');
+  const [isLabelLoading, setIsLabelLoading] = useState(false);
+  const [labelError, setLabelError] = useState<string | null>(null);
   
   // Customer editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -122,33 +124,69 @@ export function CustomerDetailsPanel({
 
   if (!isOpen || !customer) return null;
 
-  const handleAddLabel = () => {
-    if (!newLabelName.trim()) return;
+  const handleAddLabel = async () => {
+    if (!newLabelName.trim() || !customer) return;
 
-    const newLabel: CustomerLabel = {
-      id: `label-${Date.now()}`,
-      name: newLabelName.trim(),
-      color: newLabelColor,
-      value: '10789'
-    };
+    setIsLabelLoading(true);
+    setLabelError(null);
 
-    const updatedCustomer = {
-      ...customer,
-      labels: [...customer.labels, newLabel]
-    };
+    try {
+      // Add label to database
+      const newLabel = await addCustomerLabel(customer.id, {
+        name: newLabelName.trim(),
+        color: newLabelColor,
+        value: '10789' // You can modify this or make it dynamic
+      });
 
-    onCustomerUpdate(updatedCustomer);
-    setNewLabelName('');
-    setNewLabelColor('#FEF3C7');
-    setIsEditingLabels(false);
+      // Update local state
+      const updatedCustomer = {
+        ...customer,
+        labels: [...customer.labels, newLabel]
+      };
+
+      onCustomerUpdate(updatedCustomer);
+      setNewLabelName('');
+      setNewLabelColor('#FEF3C7');
+      setIsEditingLabels(false);
+
+    } catch (error) {
+      console.error('Error adding label:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        customerId: customer.id,
+        labelData: { name: newLabelName.trim(), color: newLabelColor, value: '10789' }
+      });
+      setLabelError(error instanceof Error ? error.message : 'Failed to add label');
+    } finally {
+      setIsLabelLoading(false);
+    }
   };
 
-  const handleRemoveLabel = (labelId: string) => {
-    const updatedCustomer = {
-      ...customer,
-      labels: customer.labels.filter(label => label.id !== labelId)
-    };
-    onCustomerUpdate(updatedCustomer);
+  const handleRemoveLabel = async (labelId: string) => {
+    if (!customer) return;
+
+    setIsLabelLoading(true);
+    setLabelError(null);
+
+    try {
+      // Remove label from database
+      await removeCustomerLabel(customer.id, labelId);
+
+      // Update local state
+      const updatedCustomer = {
+        ...customer,
+        labels: customer.labels.filter(label => label.id !== labelId)
+      };
+
+      onCustomerUpdate(updatedCustomer);
+
+    } catch (error) {
+      console.error('Error removing label:', error);
+      setLabelError(error instanceof Error ? error.message : 'Failed to remove label');
+    } finally {
+      setIsLabelLoading(false);
+    }
   };
 
   // Customer editing handlers
@@ -245,6 +283,23 @@ export function CustomerDetailsPanel({
     onClose();
   };
 
+  const handleViewOrderHistory = () => {
+    if (!customer) return;
+    
+    // Check if customer has orders
+    if (customer.totalOrders === 0) {
+      // Simple alert for no orders
+      alert('This customer has no orders yet.');
+      return;
+    }
+    
+    // Navigate to orders page with customer filter
+    router.push(`/orders?customer=${customer.code}`);
+    
+    // Close the customer details panel
+    onClose();
+  };
+
   const panelContent = (
     <div className="fixed inset-0 z-modal">
       {/* Backdrop */}
@@ -316,10 +371,15 @@ export function CustomerDetailsPanel({
               )}
             </div>
 
-            {/* Error Message */}
+            {/* Error Messages */}
             {editError && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-800">{editError}</p>
+              </div>
+            )}
+            {labelError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">{labelError}</p>
               </div>
             )}
             
@@ -447,7 +507,8 @@ export function CustomerDetailsPanel({
                   </span>
                   <button
                     onClick={() => handleRemoveLabel(label.id)}
-                    className="text-text-muted hover:text-red-600 transition-colors duration-fast"
+                    disabled={isLabelLoading}
+                    className="text-text-muted hover:text-red-600 transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
@@ -483,17 +544,27 @@ export function CustomerDetailsPanel({
                   <div className="flex space-x-2">
                     <button
                       onClick={handleAddLabel}
-                      className="flex-1 py-3 px-4 bg-state-success text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast"
+                      disabled={isLabelLoading || !newLabelName.trim()}
+                      className="flex-1 py-3 px-4 bg-state-success text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Add
+                      {isLabelLoading ? (
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Adding...</span>
+                        </div>
+                      ) : (
+                        'Add'
+                      )}
                     </button>
                     <button
                       onClick={() => {
                         setIsEditingLabels(false);
                         setNewLabelName('');
                         setNewLabelColor('#FEF3C7');
+                        setLabelError(null);
                       }}
-                      className="flex-1 py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast"
+                      disabled={isLabelLoading}
+                      className="flex-1 py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Cancel
                     </button>
@@ -546,7 +617,10 @@ export function CustomerDetailsPanel({
                   >
                     Start Chat
                   </button>
-                  <button className="w-full py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast">
+                  <button 
+                    onClick={handleViewOrderHistory}
+                    className="w-full py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast"
+                  >
                     View Order History
                   </button>
                 </>

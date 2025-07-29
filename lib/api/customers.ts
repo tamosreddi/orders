@@ -400,6 +400,165 @@ export interface CreateCustomerData {
 }
 
 /**
+ * Adds a label to a customer
+ */
+export async function addCustomerLabel(
+  customerId: string, 
+  labelData: { name: string; color: string; value?: string }
+): Promise<CustomerLabel> {
+  try {
+    const distributorId = getCurrentDistributorId();
+
+    // First, create or find the label
+    let labelId: string;
+    
+    // Try to find existing label with same name (constraint is on name only)
+    const { data: existingLabel, error: findError } = await supabase
+      .from('customer_labels')
+      .select('id, color')
+      .eq('name', labelData.name)
+      .single();
+
+    if (findError && findError.code !== 'PGRST116') {
+      throw handleSupabaseError(findError);
+    }
+
+    if (existingLabel) {
+      labelId = existingLabel.id;
+      // Use the existing label's color if it exists
+      labelData.color = existingLabel.color;
+    } else {
+      // Create new label
+      const { data: newLabel, error: labelError } = await supabase
+        .from('customer_labels')
+        .insert({
+          distributor_id: distributorId,
+          name: labelData.name,
+          color: labelData.color,
+          description: null,
+          is_predefined: false
+        })
+        .select()
+        .single();
+
+      if (labelError) {
+        throw handleSupabaseError(labelError);
+      }
+
+      labelId = newLabel.id;
+    }
+
+    // Check if assignment already exists
+    const { data: existingAssignment } = await supabase
+      .from('customer_label_assignments')
+      .select('*')
+      .eq('customer_id', customerId)
+      .eq('label_id', labelId)
+      .single();
+
+    if (existingAssignment) {
+      // Assignment already exists, just return the label
+      return {
+        id: labelId,
+        name: labelData.name,
+        color: labelData.color,
+        value: existingAssignment.value || undefined
+      };
+    }
+
+    // Create the assignment
+    const { error: assignmentError } = await supabase
+      .from('customer_label_assignments')
+      .insert({
+        customer_id: customerId,
+        label_id: labelId,
+        value: labelData.value || null
+      });
+
+    if (assignmentError) {
+      throw handleSupabaseError(assignmentError);
+    }
+
+    return {
+      id: labelId,
+      name: labelData.name,
+      color: labelData.color,
+      value: labelData.value
+    };
+
+  } catch (error) {
+    console.error('Error adding customer label:', error);
+    console.error('API Error details:', {
+      customerId,
+      labelData,
+      distributorId: getCurrentDistributorId(),
+      error: error
+    });
+    if (error instanceof CustomerError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
+  }
+}
+
+/**
+ * Removes a label from a customer
+ */
+export async function removeCustomerLabel(customerId: string, labelId: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('customer_label_assignments')
+      .delete()
+      .eq('customer_id', customerId)
+      .eq('label_id', labelId);
+
+    if (error) {
+      throw handleSupabaseError(error);
+    }
+
+  } catch (error) {
+    console.error('Error removing customer label:', error);
+    if (error instanceof CustomerError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
+  }
+}
+
+/**
+ * Gets all available labels for the current distributor
+ */
+export async function getCustomerLabels(): Promise<CustomerLabel[]> {
+  try {
+    const distributorId = getCurrentDistributorId();
+
+    const { data: labels, error } = await supabase
+      .from('customer_labels')
+      .select('id, name, color, description')
+      .eq('distributor_id', distributorId)
+      .order('name');
+
+    if (error) {
+      throw handleSupabaseError(error);
+    }
+
+    return labels?.map(label => ({
+      id: label.id,
+      name: label.name,
+      color: label.color,
+      value: undefined // Labels don't have values until assigned to customers
+    })) || [];
+
+  } catch (error) {
+    console.error('Error fetching customer labels:', error);
+    if (error instanceof CustomerError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
+  }
+}
+
+/**
  * Creates a new customer with labels
  */
 export async function createCustomer(
