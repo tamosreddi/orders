@@ -1,0 +1,43 @@
+# Order Agent Dependencies
+# Core AI and Agent Framework
+pydantic-ai==0.0.14
+openai==1.66.3
+pydantic==2.10.4
+
+# Database and Backend Services
+supabase==2.10.0
+asyncpg==0.30.0
+
+# Environment and Configuration
+python-dotenv==1.0.1
+
+# String Matching for Product Catalog (REMOVED - using OpenAI instead)
+# fuzzywuzzy==0.18.0
+# python-Levenshtein==0.25.0
+
+# Async HTTP Client
+httpx==0.28.1
+aiohttp==3.11.11
+
+# HTTP API Server
+fastapi==0.115.6
+uvicorn==0.34.0
+
+# Development and Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-cov==6.0.0
+
+# Code Quality
+ruff==0.8.12
+mypy==1.14.0
+
+# Logging and Monitoring  
+loguru==0.7.3
+
+# Data Processing
+pandas==2.2.3
+numpy==2.2.1
+
+# Type Support
+types-requests==2.32.0.20241216

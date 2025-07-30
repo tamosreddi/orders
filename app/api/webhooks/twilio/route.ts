@@ -102,6 +102,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       messageId: result.message.id
     });
 
+    // INTEGRATION: Trigger AI agent processing in the background
+    try {
+      await triggerAIAgentProcessing({
+        messageId: result.message.id,
+        customerId: result.customer.id,
+        conversationId: result.conversation.id,
+        content: validatedPayload.Body,
+        distributorId: distributorId,
+        channel: 'WHATSAPP'
+      });
+      console.log('🤖 AI agent processing triggered successfully');
+    } catch (aiError) {
+      // Log but don't fail the webhook - message is already stored
+      console.error('⚠️ Failed to trigger AI agent processing:', aiError);
+      // AI processing will be picked up by polling loop as fallback
+    }
+
+    // Real-time updates are handled automatically by Supabase Realtime
+    console.log('✅ Message processed - real-time updates via Supabase Realtime');
+
     // Determine appropriate response based on message content and media
     let responseMessage = WHATSAPP_RESPONSES.WELCOME;
     
@@ -208,6 +228,56 @@ function isHelpRequest(messageBody: string): boolean {
   const lowerBody = messageBody.toLowerCase();
   return helpKeywords.some(keyword => lowerBody.includes(keyword));
 }
+
+/**
+ * Triggers AI agent processing for a new message
+ * Calls the AI agent HTTP API to process the message in real-time
+ * @param messageData - Message processing data
+ */
+async function triggerAIAgentProcessing(messageData: {
+  messageId: string;
+  customerId: string;
+  conversationId: string;
+  content: string;
+  distributorId: string;
+  channel: string;
+}) {
+  const AI_AGENT_URL = process.env.AI_AGENT_URL || 'http://localhost:8001';
+  const endpoint = `${AI_AGENT_URL}/process-message-background`;
+  
+  console.log(`🔄 Calling AI agent at: ${endpoint}`);
+  
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message_id: messageData.messageId,
+        customer_id: messageData.customerId,
+        conversation_id: messageData.conversationId,
+        content: messageData.content,
+        distributor_id: messageData.distributorId,
+        channel: messageData.channel
+      }),
+      // Don't wait too long - this is background processing
+      signal: AbortSignal.timeout(5000) // 5 second timeout
+    });
+    
+    if (!response.ok) {
+      throw new Error(`AI agent responded with status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('✅ AI agent processing queued:', result);
+    
+  } catch (error) {
+    console.error('❌ AI agent call failed:', error);
+    throw error;
+  }
+}
+
 
 /**
  * OPTIONS handler for CORS preflight requests

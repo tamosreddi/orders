@@ -24,7 +24,13 @@
       "WebFetch(domain:ai.pydantic.dev)",
       "mcp__supabase__execute_sql",
       "Bash(killall:*)",
-      "Bash(ngrok:*)"
+      "Bash(ngrok:*)",
+      "Bash(./venv/bin/python -m py_compile:*)",
+      "Bash(./venv/bin/python test_streamlined.py:*)",
+      "Bash(./venv/bin/pip install fastapi uvicorn supabase pydantic-ai openai python-dotenv)",
+      "Bash(venv_new/bin/mypy:*)",
+      "Bash(venv_new/bin/python:*)",
+      "mcp__context7__resolve-library-id"
     ],
     "deny": []
   },

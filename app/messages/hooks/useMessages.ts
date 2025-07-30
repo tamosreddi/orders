@@ -53,6 +53,8 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
 
+  // Real-time messaging using Supabase Realtime (WebSocket-based)
+
   // Load conversations with RLS filtering
   const loadConversations = useCallback(async (isInitialLoad: boolean = false) => {
     try {
@@ -62,7 +64,8 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
       }
       setConversationsError(null);
 
-      const { data, error } = await supabase
+      // First get conversations
+      const { data: conversationsData, error: conversationsError } = await supabase
         .from('conversations')
         .select(`
           id,
@@ -90,35 +93,67 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
         .eq('status', 'ACTIVE')
         .order('last_message_at', { ascending: false });
 
+      if (conversationsError) {
+        throw new Error(`Failed to load conversations: ${conversationsError.message}`);
+      }
+
+      // Then get unread message counts for each conversation
+      const conversationIds = conversationsData?.map(conv => conv.id) || [];
+      let unreadCounts: Record<string, number> = {};
+      
+      if (conversationIds.length > 0) {
+        const { data: messagesData, error: messagesError } = await supabase
+          .from('messages')
+          .select('conversation_id, id')
+          .in('conversation_id', conversationIds)
+          .eq('is_from_customer', true)
+          .neq('status', 'READ');
+
+        if (!messagesError && messagesData) {
+          // Count unread messages per conversation
+          messagesData.forEach(msg => {
+            unreadCounts[msg.conversation_id] = (unreadCounts[msg.conversation_id] || 0) + 1;
+          });
+        }
+      }
+
+      const data = conversationsData;
+      const error = conversationsError;
+
       if (error) {
         throw new Error(`Failed to load conversations: ${(error as any)?.message || 'Unknown error'}`);
       }
 
       // Transform data to match frontend interface
-      const transformedConversations: Conversation[] = (data || []).map((conv: any) => ({
-        id: conv.id,
-        customerId: conv.customer_id,
-        customer: {
-          name: conv.customers.business_name,
-          avatar: conv.customers.avatar_url || '',
-          code: conv.customers.customer_code
-        },
-        channel: conv.channel,
-        status: conv.status,
-        lastMessageAt: conv.last_message_at,
-        unreadCount: conv.unread_count || 0,
-        lastMessage: conv.messages?.[0] ? {
-          content: conv.messages[0].content,
-          isFromCustomer: conv.messages[0].is_from_customer
-        } : {
-          content: '',
-          isFromCustomer: false
-        },
-        aiContextSummary: conv.ai_context_summary,
-        distributorId: conv.distributor_id,
-        createdAt: conv.created_at,
-        updatedAt: conv.updated_at
-      }));
+      const transformedConversations: Conversation[] = (data || []).map((conv: any) => {
+        // Use the accurate unread count we calculated
+        const actualUnreadCount = unreadCounts[conv.id] || 0;
+
+        return {
+          id: conv.id,
+          customerId: conv.customer_id,
+          customer: {
+            name: conv.customers.business_name,
+            avatar: conv.customers.avatar_url || '',
+            code: conv.customers.customer_code
+          },
+          channel: conv.channel,
+          status: conv.status,
+          lastMessageAt: conv.last_message_at,
+          unreadCount: actualUnreadCount, // Use accurate calculated count
+          lastMessage: conv.messages?.[0] ? {
+            content: conv.messages[0].content || '',
+            isFromCustomer: conv.messages[0].is_from_customer || false
+          } : {
+            content: '',
+            isFromCustomer: false
+          },
+          aiContextSummary: conv.ai_context_summary,
+          distributorId: conv.distributor_id,
+          createdAt: conv.created_at,
+          updatedAt: conv.updated_at
+        };
+      });
 
       // Only update state if data has actually changed
       setConversations(prev => {
@@ -231,8 +266,8 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
         const messageIds = unreadCustomerMessages.map(msg => msg.id);
         await markAsRead(messageIds);
         
-        // Reset unread count in conversation
-        await supabase
+        // Reset unread count in conversation database
+        const { error: updateError } = await supabase
           .from('conversations')
           .update({ 
             unread_count: 0,
@@ -240,6 +275,10 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
           })
           .eq('id', convId)
           .eq('distributor_id', distributorId);
+
+        if (updateError) {
+          console.warn('Failed to update conversation unread_count:', updateError);
+        }
 
         // Refresh conversations to update unread count in UI
         await loadConversations();
@@ -306,13 +345,19 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
       }
 
       // Update conversation last_message_at and last_message_id
+      // For messages from customer, increment unread_count
+      const updateData: any = {
+        last_message_at: new Date().toISOString(),
+        last_message_id: newMessage.id,
+        updated_at: new Date().toISOString()
+      };
+
+      // Messages sent through sendMessage are always from distributor, not customer
+      // So we don't increment unread_count here
+
       await supabase
         .from('conversations')
-        .update({ 
-          last_message_at: new Date().toISOString(),
-          last_message_id: newMessage.id,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', data.conversationId)
         .eq('distributor_id', distributorId);
 
@@ -400,13 +445,85 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
     }
   }, [conversationId, loadMessages]);
 
+  // Real-time message updates via Supabase Realtime WebSocket
+
   // Set up real-time subscriptions for live updates
   useEffect(() => {
-    console.log('Setting up real-time subscriptions...');
     
-    // Set up real-time subscriptions for live updates
+    // Set up messages subscription with better handling
+    const messagesSubscription = supabase
+      .channel(`messages_changes_${Date.now()}`) // Unique channel name
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'messages'
+        }, 
+        (payload: any) => {
+          // Handle INSERT events (new messages)
+          if (payload.eventType === 'INSERT' && payload.new) {
+            // Always refresh conversations first to update last message and unread counts
+            loadConversations();
+            
+            // If this message is for the currently selected conversation, add it immediately to the chat
+            if (conversationId && payload.new.conversation_id === conversationId) {
+              
+              const newMessage: Message = {
+                id: payload.new.id,
+                conversationId: payload.new.conversation_id,
+                content: payload.new.content,
+                isFromCustomer: payload.new.is_from_customer,
+                messageType: payload.new.message_type || 'TEXT',
+                status: payload.new.status || 'DELIVERED',
+                attachments: payload.new.attachments || [],
+                aiProcessed: payload.new.ai_processed || false,
+                aiConfidence: payload.new.ai_confidence,
+                aiExtractedIntent: payload.new.ai_extracted_intent,
+                aiExtractedProducts: payload.new.ai_extracted_products,
+                aiSuggestedResponses: payload.new.ai_suggested_responses,
+                orderContextId: payload.new.order_context_id,
+                distributorId: distributorId,
+                externalMessageId: payload.new.external_message_id,
+                createdAt: payload.new.created_at,
+                updatedAt: payload.new.updated_at
+              };
+
+              // Add message to current conversation chat immediately
+              setMessages(prev => {
+                // Check for duplicates
+                const exists = prev.find(msg => msg.id === newMessage.id);
+                if (exists) return prev;
+                return [...prev, newMessage];
+              });
+            }
+          }
+          
+          // Handle UPDATE events (message status changes, etc.)
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            if (conversationId && payload.new.conversation_id === conversationId) {
+              setMessages(prev => prev.map(msg => 
+                msg.id === payload.new.id ? {
+                  ...msg,
+                  content: payload.new.content,
+                  status: payload.new.status,
+                  aiProcessed: payload.new.ai_processed,
+                  updatedAt: payload.new.updated_at
+                } : msg
+              ));
+            }
+            loadConversations();
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED' && status !== 'CLOSED') {
+          console.warn('Realtime connection issue:', status);
+        }
+      });
+
+    // Set up conversations subscription
     const conversationsSubscription = supabase
-      .channel('conversations_changes')
+      .channel(`conversations_changes_${Date.now()}`) // Unique channel name
       .on('postgres_changes', 
         { 
           event: '*', 
@@ -415,44 +532,16 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
           filter: `distributor_id=eq.${distributorId}`
         }, 
         (payload) => {
-          console.log('Conversation change detected:', payload);
-          loadConversations(); // Background update
+          loadConversations();
         }
       )
-      .subscribe();
-
-    const messagesSubscription = supabase
-      .channel('messages_changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'messages'
-          // Note: RLS will handle filtering, no need for distributor_id filter
-        }, 
-        (payload: any) => {
-          console.log('Message change detected:', payload);
-          // Only refresh if it's for the current conversation
-          if (payload.new && payload.new.conversation_id === conversationId && conversationId) {
-            loadMessages(conversationId);
-          }
-          // Always refresh conversations to update last message
-          loadConversations(); // Background update
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED' && status !== 'CLOSED') {
+          console.warn('Conversations realtime connection issue:', status);
         }
-      )
-      .subscribe();
-
-    // Set up a light background refresh every 30 seconds as fallback
-    // This ensures we don't miss anything if real-time fails
-    const lightPollingInterval = setInterval(() => {
-      // Only do light refresh if user is active (document is visible)
-      if (!document.hidden) {
-        loadConversations(); // Background update
-      }
-    }, 30000); // 30 seconds instead of 2 seconds
+      });
 
     return () => {
-      clearInterval(lightPollingInterval);
       supabase.removeChannel(conversationsSubscription);
       supabase.removeChannel(messagesSubscription);
     };

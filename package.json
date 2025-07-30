@@ -20,6 +20,8 @@
     "next": "^14.2.18",
     "react": "^18",
     "react-dom": "^18",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "twilio": "^5.8.0"
   },
   "devDependencies": {
