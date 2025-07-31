@@ -154,7 +154,16 @@ class CatalogProduct(BaseModel):
     
     # Availability
     in_stock: bool = Field(default=True, description="Whether product is in stock")
+    stock_quantity: Optional[int] = Field(None, ge=0, description="Current stock quantity")
+    minimum_order_quantity: Optional[int] = Field(1, ge=1, description="Minimum order quantity")
+    maximum_order_quantity: Optional[int] = Field(None, ge=1, description="Maximum order quantity")
+    lead_time_days: Optional[int] = Field(0, ge=0, description="Lead time in days")
     active: bool = Field(default=True, description="Whether product is actively sold")
+    
+    # Product variants and features
+    size_variants: List[str] = Field(default_factory=list, description="Available size variants")
+    seasonal: bool = Field(default=False, description="Whether product is seasonal")
+    seasonal_patterns: List[dict] = Field(default_factory=list, description="Seasonal availability patterns")
     
     @property
     def search_terms(self) -> List[str]:

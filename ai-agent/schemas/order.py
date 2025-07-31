@@ -239,11 +239,11 @@ class OrderDatabaseInsert(BaseModel):
     distributor_id: str
     conversation_id: Optional[str] = None
     channel: str
-    status: str = Field(default="PENDIENTE", description="Order status in Spanish")
+    status: str = Field(default="PENDING", description="Order status")
     received_date: str = Field(default_factory=lambda: date.today().isoformat())
     received_time: str = Field(default_factory=lambda: datetime.now().time().isoformat())
     delivery_date: Optional[str] = None
-    total_amount: Optional[Decimal] = None
+    total_amount: Decimal = Field(default=Decimal('0.00'), description="Total order amount")
     additional_comment: Optional[str] = None
     ai_generated: bool = Field(default=True)
     ai_confidence: float
@@ -266,13 +266,16 @@ class OrderDatabaseInsert(BaseModel):
         Returns:
             OrderDatabaseInsert: Database insert model
         """
+        # Ensure total_amount is never None - use provided value, order's total, or default to 0
+        final_total = total_amount or order.total_amount or Decimal('0.00')
+        
         return cls(
             customer_id=order.customer_id,
             distributor_id=order.distributor_id,
             conversation_id=order.conversation_id,
             channel=order.channel,
             delivery_date=order.delivery_date,
-            total_amount=total_amount or order.total_amount,
+            total_amount=final_total,
             additional_comment=order.additional_comment,
             ai_confidence=order.ai_confidence,
             ai_source_message_id=order.source_message_ids[0] if order.source_message_ids else None,
@@ -290,9 +293,9 @@ class OrderProductDatabaseInsert(BaseModel):
     order_id: str
     product_name: str
     quantity: int
-    unit: Optional[str] = None
-    unit_price: Optional[Decimal] = None
-    line_price: Optional[Decimal] = None
+    product_unit: str = Field(default="", description="Unit of measurement - column is required in DB")
+    unit_price: Decimal = Field(default=Decimal('0.00'), description="Price per unit - NOT NULL constraint in DB")
+    line_price: Decimal = Field(default=Decimal('0.00'), description="Total line price - NOT NULL constraint in DB")
     ai_extracted: bool = Field(default=True)
     ai_confidence: float
     ai_original_text: str
@@ -318,13 +321,17 @@ class OrderProductDatabaseInsert(BaseModel):
         Returns:
             OrderProductDatabaseInsert: Database insert model
         """
+        # Ensure prices are never None due to NOT NULL constraints
+        unit_price = product.unit_price or Decimal('0.00')
+        line_price = product.line_price or Decimal('0.00')
+        
         return cls(
             order_id=order_id,
             product_name=product.product_name,
             quantity=product.quantity,
-            unit=product.unit,
-            unit_price=product.unit_price,
-            line_price=product.line_price,
+            product_unit=product.unit or "",  # Map unit to product_unit, use empty string if None
+            unit_price=unit_price,
+            line_price=line_price,
             ai_confidence=product.ai_confidence,
             ai_original_text=product.original_text,
             matched_product_id=product.matched_product_id,

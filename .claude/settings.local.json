@@ -30,7 +30,8 @@
       "Bash(./venv/bin/pip install fastapi uvicorn supabase pydantic-ai openai python-dotenv)",
       "Bash(venv_new/bin/mypy:*)",
       "Bash(venv_new/bin/python:*)",
-      "mcp__context7__resolve-library-id"
+      "mcp__context7__resolve-library-id",
+      "mcp__supabase__apply_migration"
     ],
     "deny": []
   },

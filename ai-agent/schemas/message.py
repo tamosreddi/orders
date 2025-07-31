@@ -50,7 +50,8 @@ class ExtractedProduct(BaseModel):
     Product information extracted from customer message.
     
     Represents individual products mentioned by the customer, with AI confidence
-    and original text for traceability.
+    and original text for traceability. Includes status tracking for the
+    hybrid validation workflow.
     """
     
     product_name: str = Field(
@@ -81,6 +82,32 @@ class ExtractedProduct(BaseModel):
         ge=0.0, 
         le=1.0,
         description="AI confidence score for this product extraction (0.0-1.0)"
+    )
+    
+    # Hybrid workflow status tracking
+    status: Literal["draft", "pending", "confirmed", "rejected"] = Field(
+        default="draft",
+        description="Validation status in the hybrid workflow"
+    )
+    
+    matched_product_id: Optional[str] = Field(
+        None,
+        description="ID of matched catalog product after validation"
+    )
+    
+    matched_product_name: Optional[str] = Field(
+        None,
+        description="Official name of matched catalog product"
+    )
+    
+    validation_notes: Optional[str] = Field(
+        None,
+        description="Notes from the validation process"
+    )
+    
+    clarification_asked: Optional[str] = Field(
+        None,
+        description="Clarifying question asked to customer if any"
     )
     
     @validator('product_name')
@@ -141,6 +168,16 @@ class MessageAnalysis(BaseModel):
         description="Time taken to process this message in milliseconds"
     )
     
+    requires_clarification: bool = Field(
+        default=False,
+        description="Whether this message requires clarification from the customer"
+    )
+    
+    suggested_question: Optional[str] = Field(
+        None,
+        description="Suggested clarifying question to send to the customer"
+    )
+    
     @validator('customer_notes')
     def validate_customer_notes(cls, v):
         """Clean customer notes if provided."""
@@ -159,6 +196,13 @@ class MessageAnalysis(BaseModel):
             except ValueError:
                 # If not ISO format, return as-is (customer's original text)
                 return v
+        return v
+    
+    @validator('suggested_question')
+    def validate_suggested_question(cls, v):
+        """Clean suggested question if provided."""
+        if v:
+            return v.strip()
         return v
     
     @property

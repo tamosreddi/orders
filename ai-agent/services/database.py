@@ -146,7 +146,97 @@ class DatabaseService:
             
         except Exception as e:
             logger.error(f"Database query failed: {e}")
+            
+            # Log more details for debugging
+            if hasattr(e, 'response'):
+                if hasattr(e.response, 'text'):
+                    logger.error(f"Response text: {e.response.text}")
+                if hasattr(e.response, 'content'):
+                    logger.error(f"Response content: {e.response.content}")
+                if hasattr(e.response, 'json'):
+                    try:
+                        error_json = e.response.json()
+                        logger.error(f"Response JSON: {error_json}")
+                    except:
+                        logger.error("Could not parse response JSON")
+                if hasattr(e.response, 'status_code'):
+                    logger.error(f"HTTP Status Code: {e.response.status_code}")
+            elif hasattr(e, 'args') and len(e.args) > 0:
+                logger.error(f"Error details: {e.args}")
+            
+            # Also log the operation details
+            logger.error(f"Failed operation: {operation} on table '{table}'")
+            if data:
+                logger.error(f"Data being processed: {data}")
+            if filters:
+                logger.error(f"Filters: {filters}")
+            
             raise
+    
+    async def update_single(
+        self,
+        table: str,
+        data: Dict[str, Any],
+        filters: Dict[str, Any],
+        distributor_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update a single record and return the updated record.
+        
+        Args:
+            table: Table name
+            data: Data to update
+            filters: Filters to identify the record
+            distributor_id: Distributor ID for multi-tenant filtering
+            
+        Returns:
+            Updated record or None if no record was updated
+        """
+        result = await self.execute_query(
+            table=table,
+            operation='update',
+            data=data,
+            filters=filters,
+            distributor_id=distributor_id
+        )
+        
+        if result and len(result) > 0:
+            logger.debug(f"Updated 1 record in {table}")
+            return result[0]
+        else:
+            logger.warning(f"No records updated in {table} with filters {filters}")
+            return None
+    
+    async def insert_single(
+        self,
+        table: str,
+        data: Dict[str, Any],
+        distributor_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Insert a single record and return the inserted record.
+        
+        Args:
+            table: Table name
+            data: Data to insert
+            distributor_id: Distributor ID for multi-tenant filtering
+            
+        Returns:
+            Inserted record or None if insert failed
+        """
+        result = await self.execute_query(
+            table=table,
+            operation='insert',
+            data=data,
+            distributor_id=distributor_id
+        )
+        
+        if result and len(result) > 0:
+            logger.debug(f"Inserted 1 record in {table}")
+            return result[0]
+        else:
+            logger.error(f"Failed to insert record in {table}")
+            return None
     
     @asynccontextmanager
     async def transaction(self):

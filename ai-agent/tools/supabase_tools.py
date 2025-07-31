@@ -14,6 +14,7 @@ from __future__ import annotations as _annotations
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from decimal import Decimal
 
 from services.database import DatabaseService
 from schemas.message import MessageAnalysis, MessageUpdate
@@ -21,6 +22,56 @@ from schemas.order import OrderCreation, OrderDatabaseInsert, OrderProductDataba
 from schemas.product import CatalogProduct
 
 logger = logging.getLogger(__name__)
+
+
+async def create_distributor_message(
+    database: DatabaseService,
+    conversation_id: str,
+    content: str,
+    distributor_id: str,
+    message_type: str = 'TEXT'
+) -> Optional[str]:
+    """
+    Create a message from the distributor (AI agent response).
+    
+    Args:
+        database: Database service instance
+        conversation_id: ID of the conversation
+        content: Message content to send
+        distributor_id: Distributor ID
+        message_type: Type of message (default: TEXT)
+        
+    Returns:
+        Message ID if successful, None if failed
+    """
+    try:
+        message_data = {
+            'conversation_id': conversation_id,
+            'content': content,
+            'is_from_customer': False,  # This is from the distributor/AI
+            'message_type': message_type,
+            'status': 'SENT',
+            'ai_processed': False,  # This is an AI-generated message, not processed by AI
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        result = await database.insert_single(
+            table='messages',
+            data=message_data
+        )
+        
+        if result:
+            message_id = result.get('id')
+            logger.info(f"✅ Created distributor message {message_id} in conversation {conversation_id}")
+            return message_id
+        
+        logger.error("Failed to create distributor message - no result returned")
+        return None
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to create distributor message: {e}")
+        return None
 
 
 async def fetch_unprocessed_messages(
@@ -95,29 +146,43 @@ async def update_message_ai_data(
         logger.debug(f"Updating message {message_id} with AI analysis")
         
         # Create update data directly with the fields we know exist
+        # Use model_dump() for Pydantic v2 compatibility and add better logging
+        products_json = None
+        if analysis.extracted_products:
+            try:
+                # Use model_dump() for Pydantic v2 compatibility
+                products_json = [p.model_dump() if hasattr(p, 'model_dump') else p.dict() for p in analysis.extracted_products]
+                logger.info(f"Serializing {len(products_json)} products: {[p.get('product_name') for p in products_json]}")
+            except Exception as e:
+                logger.error(f"Failed to serialize products: {e}")
+                products_json = None
+        
         update_data = {
             'ai_processed': True,
             'ai_confidence': analysis.intent.confidence,
             'ai_extracted_intent': analysis.intent.intent,
-            'ai_extracted_products': [p.dict() for p in analysis.extracted_products] if analysis.extracted_products else None,
+            'ai_extracted_products': products_json,
             'ai_processing_time_ms': analysis.processing_time_ms,
             'updated_at': datetime.now().isoformat()
         }
         
+        logger.debug(f"Update data for message {message_id}: {update_data}")
+        
         # Update message by ID only (no distributor_id needed - message IDs are unique)
-        result = await db.execute_query(
+        result = await db.update_single(
             table='messages',
-            operation='update',
             data=update_data,
             filters={'id': message_id},
             distributor_id=None  # Explicitly set to None to prevent filtering
         )
         
-        success = result is not None and len(result) > 0
+        success = result is not None
         if success:
-            logger.info(f"Updated message {message_id} with AI analysis (confidence: {analysis.intent.confidence:.2f})")
+            logger.info(f"✅ Updated message {message_id} with AI analysis (confidence: {analysis.intent.confidence:.2f})")
+            if products_json:
+                logger.info(f"   Products saved: {[p.get('product_name') for p in products_json]}")
         else:
-            logger.warning(f"Failed to update message {message_id} - no rows affected")
+            logger.error(f"❌ Failed to update message {message_id} - no rows affected. Check if message exists in database.")
             
         return success
         
@@ -148,12 +213,23 @@ async def create_order(
         # CRITICAL: Use database transactions for atomic operations
         async with db.transaction() as tx:
             # PATTERN: Insert order record first
-            order_insert = OrderDatabaseInsert.from_order_creation(order_data)
+            # Calculate total_amount - use 0 for orders without pricing (testing phase)
+            calculated_total = order_data.total_amount or Decimal('0')
+            order_insert = OrderDatabaseInsert.from_order_creation(order_data, calculated_total)
+            
+            # Debug logging
+            logger.debug(f"Order insert data: {order_insert.dict()}")
+            logger.debug(f"Total amount: {order_insert.total_amount} (type: {type(order_insert.total_amount)})")
+            
+            # Convert Decimal to float for JSON serialization
+            order_data_dict = order_insert.dict()
+            if order_data_dict.get('total_amount') is not None:
+                order_data_dict['total_amount'] = float(order_data_dict['total_amount'])
             
             order_result = await tx.execute_query(
                 table='orders',
                 operation='insert',
-                data=order_insert.dict(),
+                data=order_data_dict,
                 distributor_id=order_data.distributor_id
             )
             
@@ -170,21 +246,46 @@ async def create_order(
                 product_insert = OrderProductDatabaseInsert.from_order_product(
                     product, order_id, line_order
                 )
-                products_to_insert.append(product_insert.dict())
+                product_dict = product_insert.dict()
+                
+                # Convert Decimal fields to float for JSON serialization
+                if product_dict.get('unit_price') is not None:
+                    product_dict['unit_price'] = float(product_dict['unit_price'])
+                if product_dict.get('line_price') is not None:
+                    product_dict['line_price'] = float(product_dict['line_price'])
+                
+                products_to_insert.append(product_dict)
+                
+                # Debug: Log the product data being inserted
+                logger.debug(f"Product to insert: {product_dict}")
             
             if products_to_insert:
-                products_result = await tx.execute_query(
-                    table='order_products',
-                    operation='insert',
-                    data=products_to_insert,
-                    distributor_id=order_data.distributor_id
-                )
-                
-                if not products_result:
-                    logger.error("Failed to insert order products")
+                try:
+                    products_result = await tx.execute_query(
+                        table='order_products',
+                        operation='insert',
+                        data=products_to_insert,
+                        distributor_id=None  # order_products table doesn't have distributor_id column
+                    )
+                    
+                    if not products_result:
+                        logger.error("Failed to insert order products")
+                        return None
+                    
+                    logger.debug(f"Created {len(products_to_insert)} order product records")
+                except Exception as e:
+                    logger.error(f"Order products insertion failed: {e}")
+                    # Log detailed error information
+                    if hasattr(e, 'response') and hasattr(e.response, 'text'):
+                        logger.error(f"Response text: {e.response.text}")
+                    elif hasattr(e, 'response') and hasattr(e.response, 'json'):
+                        try:
+                            error_json = e.response.json()
+                            logger.error(f"Response JSON: {error_json}")
+                        except:
+                            logger.error(f"Could not parse response JSON")
+                    logger.error(f"Product data being inserted: {products_to_insert}")
                     return None
-                
-                logger.debug(f"Created {len(products_to_insert)} order product records")
             
             logger.info(f"Successfully created order {order_id} with {len(products_to_insert)} products")
             return order_id
