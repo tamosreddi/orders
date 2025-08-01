@@ -9,48 +9,117 @@ import { OrderProduct } from '../../types/order';
 interface EditableProductsTableProps {
   products: OrderProduct[];
   onProductsChange: (products: OrderProduct[]) => void;
+  onUpdateProduct?: (productId: string, updates: Partial<OrderProduct>) => Promise<void>;
+  onAddProduct?: (productData: Omit<OrderProduct, 'id'>) => Promise<OrderProduct>;
+  onDeleteProduct?: (productId: string) => Promise<void>;
 }
 
-export function EditableProductsTable({ products, onProductsChange }: EditableProductsTableProps) {
+export function EditableProductsTable({ 
+  products, 
+  onProductsChange, 
+  onUpdateProduct,
+  onAddProduct, 
+  onDeleteProduct 
+}: EditableProductsTableProps) {
   const [editingCell, setEditingCell] = useState<string | null>(null);
 
-  const updateProduct = (index: number, field: keyof OrderProduct, value: string | number) => {
+  const updateProduct = async (index: number, field: keyof OrderProduct, value: string | number) => {
+    const product = products[index];
     const updatedProducts = [...products];
+    
+    let updatedProduct;
     if (field === 'quantity' || field === 'unitPrice') {
       const numValue = typeof value === 'string' ? parseFloat(value) || 0 : value;
-      updatedProducts[index] = {
-        ...updatedProducts[index],
+      updatedProduct = {
+        ...product,
         [field]: numValue,
         linePrice: field === 'quantity' 
-          ? numValue * updatedProducts[index].unitPrice
+          ? numValue * product.unitPrice
           : field === 'unitPrice'
-          ? updatedProducts[index].quantity * numValue
-          : updatedProducts[index].linePrice
+          ? product.quantity * numValue
+          : product.linePrice
       };
     } else {
-      updatedProducts[index] = {
-        ...updatedProducts[index],
+      updatedProduct = {
+        ...product,
         [field]: value
       };
     }
+    
+    // Update local state immediately for optimistic UI
+    updatedProducts[index] = updatedProduct;
     onProductsChange(updatedProducts);
+    
+    // Call API update if available
+    if (onUpdateProduct && !product.id.startsWith('NEW')) {
+      try {
+        const updates: Partial<{product_name: string; product_unit: string; quantity: number; unit_price: number; line_price: number}> = {};
+        if (field === 'name') updates.product_name = value as string;
+        if (field === 'unit') updates.product_unit = value as string;
+        if (field === 'quantity') updates.quantity = updatedProduct.quantity;
+        if (field === 'unitPrice') updates.unit_price = updatedProduct.unitPrice;
+        if (field === 'linePrice') updates.line_price = updatedProduct.linePrice;
+        
+        await onUpdateProduct(product.id, updates);
+      } catch (error) {
+        console.error('Failed to update product:', error);
+        // Revert on error
+        updatedProducts[index] = product;
+        onProductsChange(updatedProducts);
+      }
+    }
   };
 
-  const deleteProduct = (index: number) => {
+  const deleteProduct = async (index: number) => {
+    const product = products[index];
     const updatedProducts = products.filter((_, i) => i !== index);
+    
+    // Update local state immediately for optimistic UI
     onProductsChange(updatedProducts);
+    
+    // Call API delete if available
+    if (onDeleteProduct && !product.id.startsWith('NEW')) {
+      try {
+        await onDeleteProduct(product.id);
+      } catch (error) {
+        console.error('Failed to delete product:', error);
+        // Revert on error
+        onProductsChange(products);
+      }
+    }
   };
 
-  const addProduct = () => {
-    const newProduct: OrderProduct = {
-      id: `NEW${Date.now()}`,
-      name: 'Nuevo producto',
-      unit: 'Unidad',
-      quantity: 1,
-      unitPrice: 0,
-      linePrice: 0
-    };
-    onProductsChange([...products, newProduct]);
+  const addProduct = async () => {
+    if (onAddProduct) {
+      try {
+        const newProductData = {
+          name: 'Nuevo producto',
+          unit: 'Unidad',
+          quantity: 1,
+          unitPrice: 0,
+          linePrice: 0
+        };
+        
+        const newProduct = await onAddProduct(newProductData);
+        const updatedProducts = [...products, newProduct];
+        onProductsChange(updatedProducts);
+      } catch (error) {
+        console.error('Failed to add product:', error);
+      }
+    } else {
+      // Fallback for when no API callback is provided
+      const newProduct: OrderProduct = {
+        id: `NEW${Date.now()}`,
+        name: 'Nuevo producto',
+        unit: 'Unidad',
+        quantity: 1,
+        unitPrice: 0,
+        linePrice: 0
+      };
+      
+      const updatedProducts = [...products, newProduct];
+      onProductsChange(updatedProducts);
+    }
   };
 
   const totalAmount = products.reduce((sum, product) => sum + product.linePrice, 0);
@@ -69,7 +138,9 @@ export function EditableProductsTable({ products, onProductsChange }: EditablePr
         <input
           type={isNumeric ? 'number' : 'text'}
           value={value}
-          onChange={(e) => updateProduct(productIndex, field, e.target.value)}
+          onChange={(e) => {
+            updateProduct(productIndex, field, e.target.value);
+          }}
           onBlur={() => setEditingCell(null)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

@@ -200,21 +200,11 @@ export function MessageThread({
                       )}
                     </div>
                     
-                    {/* AI Processing Indicator */}
-                    {message.aiProcessed && message.aiConfidence && (
+                    {/* Order Intent Display - Only show yellow "ÓRDEN" bubble when intent is "BUY" */}
+                    {message.aiExtractedIntent === 'BUY' && (
                       <div className="mt-2 text-xs opacity-75">
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                          AI: {Math.round(message.aiConfidence * 100)}%
-                        </span>
-                      </div>
-                    )}
-                    
-                    
-                    {/* AI Extracted Intent Display */}
-                    {message.aiExtractedIntent && (
-                      <div className="mt-2 text-xs opacity-75">
-                        <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
-                          Intent: {message.aiExtractedIntent}
+                        <span className="bg-yellow-200 text-yellow-800 px-2 py-1 rounded text-xs">
+                          ÓRDEN
                         </span>
                       </div>
                     )}

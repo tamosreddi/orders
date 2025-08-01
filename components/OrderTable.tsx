@@ -112,7 +112,24 @@ export function OrderTable({ orders, rowSelection, onRowSelectionChange }: Order
     columnHelper.accessor('deliveryDate', {
       header: 'Fecha de Envío',
       cell: (info) => {
-        const date = new Date(info.getValue());
+        const deliveryDate = info.getValue();
+        if (!deliveryDate) {
+          return (
+            <span className="text-sm text-text-muted">
+              Fecha por confirmar
+            </span>
+          );
+        }
+        
+        const date = new Date(deliveryDate);
+        if (isNaN(date.getTime())) {
+          return (
+            <span className="text-sm text-text-muted">
+              Fecha por confirmar
+            </span>
+          );
+        }
+        
         return (
           <span className="text-sm text-text-default">
             {date.toLocaleDateString('en-US', { 

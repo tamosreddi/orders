@@ -284,6 +284,7 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
 
     // Format time for display
     const formatTime = (timeString: string): string => {
+      if (!timeString) return '';
       const [hours, minutes] = timeString.split(':');
       const hour24 = parseInt(hours);
       const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
@@ -389,5 +390,239 @@ export async function bulkUpdateOrderStatus(orderIds: string[], status: Order['s
       throw error;
     }
     throw handleSupabaseError(error);
+  }
+}
+
+/**
+ * Updates a single order product
+ */
+export async function updateOrderProduct(
+  orderProductId: string, 
+  updates: Partial<{
+    product_name: string;
+    product_unit: string;
+    quantity: number;
+    unit_price: number;
+    line_price: number;
+  }>
+): Promise<void> {
+  try {
+    const distributorId = getCurrentDistributorId();
+
+    // Verify the order product belongs to the current distributor
+    const { data: orderProduct, error: fetchError } = await supabase
+      .from('order_products')
+      .select(`
+        id,
+        order_id,
+        orders!inner (
+          distributor_id
+        )
+      `)
+      .eq('id', orderProductId)
+      .single();
+
+    if (fetchError) {
+      throw handleSupabaseError(fetchError);
+    }
+
+    if (!orderProduct || orderProduct.orders.distributor_id !== distributorId) {
+      throw new OrderError(ORDER_ERROR_MESSAGES.PERMISSION_DENIED, 'PERMISSION_DENIED');
+    }
+
+    // Update the order product
+    const { error } = await supabase
+      .from('order_products')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', orderProductId);
+
+    if (error) {
+      throw handleSupabaseError(error);
+    }
+
+    // Update the order's total amount if prices changed
+    if (updates.unit_price !== undefined || updates.quantity !== undefined || updates.line_price !== undefined) {
+      await updateOrderTotal(orderProduct.order_id);
+    }
+
+  } catch (error) {
+    console.error('Error updating order product:', error);
+    if (error instanceof OrderError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
+  }
+}
+
+/**
+ * Adds a new product to an order
+ */
+export async function addOrderProduct(
+  orderId: string,
+  productData: {
+    product_name: string;
+    product_unit: string;
+    quantity: number;
+    unit_price: number;
+    line_price: number;
+  }
+): Promise<OrderProduct> {
+  try {
+    const distributorId = getCurrentDistributorId();
+
+    // Verify the order belongs to the current distributor
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, distributor_id')
+      .eq('id', orderId)
+      .eq('distributor_id', distributorId)
+      .single();
+
+    if (orderError || !order) {
+      throw new OrderError(ORDER_ERROR_MESSAGES.ORDER_NOT_FOUND, 'ORDER_NOT_FOUND');
+    }
+
+    // Get the next line_order number
+    const { data: maxLineOrder } = await supabase
+      .from('order_products')
+      .select('line_order')
+      .eq('order_id', orderId)
+      .order('line_order', { ascending: false })
+      .limit(1)
+      .single();
+
+    const nextLineOrder = (maxLineOrder?.line_order || 0) + 1;
+
+    // Insert the new product
+    const { data: newProduct, error: insertError } = await supabase
+      .from('order_products')
+      .insert([{
+        order_id: orderId,
+        product_name: productData.product_name,
+        product_unit: productData.product_unit,
+        quantity: productData.quantity,
+        unit_price: productData.unit_price,
+        line_price: productData.line_price,
+        line_order: nextLineOrder,
+        ai_extracted: false,
+        manual_override: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+
+    if (insertError) {
+      throw handleSupabaseError(insertError);
+    }
+
+    // Update the order's total amount
+    await updateOrderTotal(orderId);
+
+    // Return the new product in frontend format
+    return {
+      id: newProduct.id,
+      name: newProduct.product_name,
+      unit: newProduct.product_unit,
+      quantity: newProduct.quantity,
+      unitPrice: newProduct.unit_price,
+      linePrice: newProduct.line_price
+    };
+
+  } catch (error) {
+    console.error('Error adding order product:', error);
+    if (error instanceof OrderError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
+  }
+}
+
+/**
+ * Deletes a product from an order
+ */
+export async function deleteOrderProduct(orderProductId: string): Promise<void> {
+  try {
+    const distributorId = getCurrentDistributorId();
+
+    // Verify the order product belongs to the current distributor and get order_id
+    const { data: orderProduct, error: fetchError } = await supabase
+      .from('order_products')
+      .select(`
+        id,
+        order_id,
+        orders!inner (
+          distributor_id
+        )
+      `)
+      .eq('id', orderProductId)
+      .single();
+
+    if (fetchError) {
+      throw handleSupabaseError(fetchError);
+    }
+
+    if (!orderProduct || orderProduct.orders.distributor_id !== distributorId) {
+      throw new OrderError(ORDER_ERROR_MESSAGES.PERMISSION_DENIED, 'PERMISSION_DENIED');
+    }
+
+    // Delete the order product
+    const { error } = await supabase
+      .from('order_products')
+      .delete()
+      .eq('id', orderProductId);
+
+    if (error) {
+      throw handleSupabaseError(error);
+    }
+
+    // Update the order's total amount
+    await updateOrderTotal(orderProduct.order_id);
+
+  } catch (error) {
+    console.error('Error deleting order product:', error);
+    if (error instanceof OrderError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
+  }
+}
+
+/**
+ * Helper function to recalculate and update order total
+ */
+async function updateOrderTotal(orderId: string): Promise<void> {
+  try {
+    // Get all products for this order
+    const { data: products, error: productsError } = await supabase
+      .from('order_products')
+      .select('line_price')
+      .eq('order_id', orderId);
+
+    if (productsError) {
+      throw handleSupabaseError(productsError);
+    }
+
+    // Calculate new total
+    const newTotal = products?.reduce((sum, product) => sum + (product.line_price || 0), 0) || 0;
+
+    // Update the order total
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({ 
+        total_amount: newTotal,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', orderId);
+
+    if (updateError) {
+      throw handleSupabaseError(updateError);
+    }
+
+  } catch (error) {
+    console.warn('Failed to update order total:', error);
   }
 }

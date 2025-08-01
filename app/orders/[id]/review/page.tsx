@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { OrderDetails, OrderProduct } from '../../../../types/order';
 import { Customer } from '../../../../types/customer';
-import { getOrderDetails } from '../../../../lib/mockOrders';
+import { getOrderById, updateOrderProduct, addOrderProduct, deleteOrderProduct, OrderError } from '../../../../lib/api/orders';
 import { getCustomerByCode } from '../../../../lib/api/customers';
 import { EditableProductsTable } from '../../../../components/OrderReview/EditableProductsTable';
 import { ClickableCustomerDisplay } from '../../../../components/OrderReview/ClickableCustomerDisplay';
@@ -29,7 +29,7 @@ export default function OrderReviewPage() {
   useEffect(() => {
     const loadOrderDetails = async () => {
       try {
-        const details = await getOrderDetails(orderId);
+        const details = await getOrderById(orderId);
         if (details) {
           setOrderDetails(details);
           setProducts(details.products);
@@ -49,8 +49,51 @@ export default function OrderReviewPage() {
     router.push('/orders');
   };
 
-  const handleProductsChange = (updatedProducts: OrderProduct[]) => {
+  const handleProductsChange = async (updatedProducts: OrderProduct[]) => {
     setProducts(updatedProducts);
+  };
+  
+  const handleUpdateProduct = async (productId: string, updates: Partial<OrderProduct>) => {
+    try {
+      const dbUpdates: Partial<{product_name: string; product_unit: string; quantity: number; unit_price: number; line_price: number}> = {};
+      if ('name' in updates) dbUpdates.product_name = updates.name!;
+      if ('unit' in updates) dbUpdates.product_unit = updates.unit!;
+      if ('quantity' in updates) dbUpdates.quantity = updates.quantity!;
+      if ('unitPrice' in updates) dbUpdates.unit_price = updates.unitPrice!;
+      if ('linePrice' in updates) dbUpdates.line_price = updates.linePrice!;
+      
+      await updateOrderProduct(productId, dbUpdates);
+    } catch (error) {
+      console.error('Error updating product:', error);
+      throw error;
+    }
+  };
+  
+  const handleAddProduct = async (productData: Omit<OrderProduct, 'id'>) => {
+    try {
+      const dbProduct = {
+        product_name: productData.name,
+        product_unit: productData.unit,
+        quantity: productData.quantity,
+        unit_price: productData.unitPrice,
+        line_price: productData.linePrice
+      };
+      
+      const newProduct = await addOrderProduct(orderId, dbProduct);
+      return newProduct;
+    } catch (error) {
+      console.error('Error adding product:', error);
+      throw error;
+    }
+  };
+  
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      await deleteOrderProduct(productId);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      throw error;
+    }
   };
 
   const handleAccept = () => {
@@ -247,7 +290,7 @@ export default function OrderReviewPage() {
                 </label>
                 <input
                   type="text"
-                  defaultValue={new Date(orderDetails.deliveryDate).toLocaleDateString('es-ES')}
+                  defaultValue={orderDetails.deliveryDate === 'por confirmar' ? 'por confirmar' : new Date(orderDetails.deliveryDate).toLocaleDateString('es-ES')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                 />
               </div>
@@ -281,6 +324,9 @@ export default function OrderReviewPage() {
             <EditableProductsTable 
               products={products} 
               onProductsChange={handleProductsChange}
+              onUpdateProduct={handleUpdateProduct}
+              onAddProduct={handleAddProduct}
+              onDeleteProduct={handleDeleteProduct}
             />
           </div>
 
