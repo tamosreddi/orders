@@ -1,8 +1,8 @@
 import { Order, OrderDetails, OrderProduct } from '../types/order';
 
-// TODO: Replace with Supabase data fetching
-// TODO: Implement real-time subscriptions for order updates
-// TODO: Add proper error handling and loading states
+// NOTE: This file now contains mock data for order details only
+// The main orders list has been migrated to /lib/api/orders.ts
+// TODO: Migrate getOrderDetails to use Supabase API
 
 const customerNames = [
   'Restaurant One', 'Maria Garcia', 'David Johnson', 'Jennifer Brown', 'Michael Davis',
@@ -74,16 +74,17 @@ export const mockOrders: Order[] = Array.from({ length: 281 }, (_, index) => {
   };
 });
 
-// TODO: Replace with Supabase query
+// DEPRECATED: Use getOrders from /lib/api/orders.ts instead
+// This function is kept for backward compatibility but should not be used
 export const getOrders = async (): Promise<Order[]> => {
-  // Simulate API delay
+  console.warn('DEPRECATED: getOrders from mockOrders.ts is deprecated. Use /lib/api/orders.ts instead');
   await new Promise(resolve => setTimeout(resolve, 100));
   return mockOrders;
 };
 
-// TODO: Replace with Supabase update
+// DEPRECATED: Use updateOrderStatus from /lib/api/orders.ts instead
 export const updateOrderStatus = async (orderId: string, status: Order['status']): Promise<void> => {
-  // Simulate API call
+  console.warn('DEPRECATED: updateOrderStatus from mockOrders.ts is deprecated. Use /lib/api/orders.ts instead');
   await new Promise(resolve => setTimeout(resolve, 500));
   const order = mockOrders.find(o => o.id === orderId);
   if (order) {
@@ -91,9 +92,9 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
   }
 };
 
-// TODO: Replace with Supabase bulk update
+// DEPRECATED: Use bulkUpdateOrderStatus from /lib/api/orders.ts instead
 export const bulkUpdateOrderStatus = async (orderIds: string[], status: Order['status']): Promise<void> => {
-  // Simulate bulk API call
+  console.warn('DEPRECATED: bulkUpdateOrderStatus from mockOrders.ts is deprecated. Use /lib/api/orders.ts instead');
   await new Promise(resolve => setTimeout(resolve, 1000));
   orderIds.forEach(orderId => {
     const order = mockOrders.find(o => o.id === orderId);

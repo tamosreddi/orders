@@ -3,8 +3,9 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Order, FilterState } from '../../types/order';
-import { getOrders } from '../../lib/mockOrders';
+import { OrderError } from '../../lib/api/orders';
 import { RowSelectionState } from '@tanstack/react-table';
+import { useOrders } from './hooks/useOrders';
 
 // Component imports
 import { OrderTable } from '../../components/OrderTable';
@@ -14,8 +15,18 @@ import { TablePagination } from '../../components/TablePagination';
 
 function OrdersContent() {
   const searchParams = useSearchParams();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Use the orders hook for real-time updates
+  const { 
+    orders, 
+    ordersLoading: loading, 
+    ordersError,
+    updateStatus,
+    bulkUpdateStatus 
+  } = useOrders({ 
+    distributorId: '550e8400-e29b-41d4-a716-446655440000' // TODO: Get from auth
+  });
+  
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -23,22 +34,21 @@ function OrdersContent() {
   const [filters, setFilters] = useState<FilterState>({
     tab: 'PENDING'
   });
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
-  // Load orders on component mount
-  useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        const ordersData = await getOrders();
-        setOrders(ordersData);
-      } catch (error) {
-        console.error('Failed to load orders:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Show notification and auto-hide after 5 seconds
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 5000);
+  };
 
-    loadOrders();
-  }, []);
+  // Handle orders error from the hook
+  if (ordersError && !notification) {
+    showNotification('error', ordersError);
+  }
 
   // Filter orders based on tab selection and search
   const filteredOrders = useMemo(() => {
@@ -114,10 +124,25 @@ function OrdersContent() {
     setRowSelection({});
   };
 
-  const handleConfirm = (orderIds: string[]) => {
-    console.log('Confirming orders:', orderIds);
-    // TODO: Implement confirm functionality with Supabase
-    setRowSelection({});
+  const handleConfirm = async (orderIds: string[]) => {
+    try {
+      if (orderIds.length === 1) {
+        await updateStatus(orderIds[0], 'CONFIRMED');
+        showNotification('success', 'Order confirmed successfully!');
+      } else {
+        await bulkUpdateStatus(orderIds, 'CONFIRMED');
+        showNotification('success', `${orderIds.length} orders confirmed successfully!`);
+      }
+      
+      setRowSelection({});
+    } catch (error) {
+      console.error('Failed to confirm orders:', error);
+      if (error instanceof OrderError) {
+        showNotification('error', error.message);
+      } else {
+        showNotification('error', 'Failed to confirm orders. Please try again.');
+      }
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -148,6 +173,26 @@ function OrdersContent() {
             ÓRDENES
           </h1>
         </div>
+
+        {/* Notification */}
+        {notification && (
+          <div className={`mb-6 p-4 rounded-md ${
+            notification.type === 'success' 
+              ? 'bg-green-50 border border-green-200 text-green-800' 
+              : 'bg-red-50 border border-red-200 text-red-800'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{notification.message}</span>
+              <button 
+                onClick={() => setNotification(null)}
+                className="ml-4 text-gray-400 hover:text-gray-600"
+                aria-label="Close notification"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab Filter Bar and Action Buttons */}
         <div className="mb-6 flex items-start justify-between">
