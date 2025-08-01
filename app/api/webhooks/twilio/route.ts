@@ -76,8 +76,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!validationResult.isValid) {
       console.error('❌ Invalid webhook payload:', validationResult.error);
       
-      // Return TwiML error response
-      const errorResponse = formatTwiMLResponse(WHATSAPP_RESPONSES.ERROR);
+      // Return empty TwiML response (no message sent to user)
+      const errorResponse = formatTwiMLResponse();
       return new NextResponse(errorResponse, {
         status: 200, // Return 200 to prevent Twilio retries for invalid payloads
         headers: { 'Content-Type': 'text/xml' }
@@ -122,24 +122,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Real-time updates are handled automatically by Supabase Realtime
     console.log('✅ Message processed - real-time updates via Supabase Realtime');
 
-    // Determine appropriate response based on message content and media
-    let responseMessage = WHATSAPP_RESPONSES.WELCOME;
-    
-    // Check for media attachments
-    if (parseInt(validatedPayload.NumMedia, 10) > 0) {
-      responseMessage = WHATSAPP_RESPONSES.MEDIA_RECEIVED;
-    }
-    // Check for order-related keywords
-    else if (isOrderRelatedMessage(validatedPayload.Body)) {
-      responseMessage = WHATSAPP_RESPONSES.ORDER_RECEIVED;
-    }
-    // Check for help requests
-    else if (isHelpRequest(validatedPayload.Body)) {
-      responseMessage = WHATSAPP_RESPONSES.HELP;
-    }
-
-    // CRITICAL: Return TwiML XML response (Twilio requirement)
-    const twimlResponse = formatTwiMLResponse(responseMessage);
+    // CRITICAL: Return empty TwiML XML response (Twilio requirement)
+    // No automatic message will be sent to the user
+    const twimlResponse = formatTwiMLResponse();
     
     console.log('📤 Sending TwiML response');
     return new NextResponse(twimlResponse, {
@@ -159,8 +144,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         console.error('Original error:', error.originalError);
       }
       
-      // Return appropriate TwiML error response
-      const errorResponse = formatTwiMLResponse(WHATSAPP_RESPONSES.ERROR);
+      // Return empty TwiML response (no error message sent to user)
+      const errorResponse = formatTwiMLResponse();
       return new NextResponse(errorResponse, {
         status: 200, // Return 200 to prevent Twilio retries for application errors
         headers: { 'Content-Type': 'text/xml' }
@@ -170,8 +155,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Handle unexpected errors
     console.error('Unexpected error in webhook processing:', error);
     
-    // PATTERN: Log error but return generic message for security
-    const errorResponse = formatTwiMLResponse(WHATSAPP_RESPONSES.ERROR);
+    // PATTERN: Log error but return empty TwiML (no message sent to user)
+    const errorResponse = formatTwiMLResponse();
     return new NextResponse(errorResponse, {
       status: 200, // Return 200 to prevent Twilio retries
       headers: { 'Content-Type': 'text/xml' }

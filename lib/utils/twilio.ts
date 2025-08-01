@@ -57,12 +57,14 @@ export function validateTwilioSignature(
 
 /**
  * Formats TwiML response for Twilio webhook
- * @param message - Response message to send back to customer
+ * @param message - Response message to send back to customer (optional - if not provided, returns empty TwiML)
  * @returns XML string formatted as TwiML
  */
-export function formatTwiMLResponse(message: string): string {
+export function formatTwiMLResponse(message?: string): string {
   const twiml = new MessagingResponse();
-  twiml.message(message);
+  if (message) {
+    twiml.message(message);
+  }
   return twiml.toString();
 }
 

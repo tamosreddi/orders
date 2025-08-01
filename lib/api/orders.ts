@@ -243,7 +243,7 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
   try {
     const distributorId = getCurrentDistributorId();
 
-    // Get order with customer data
+    // Get order with customer data and original message
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .select(`
@@ -254,6 +254,11 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
           customer_code,
           avatar_url,
           address
+        ),
+        original_message:messages!ai_source_message_id (
+          id,
+          content,
+          created_at
         )
       `)
       .eq('id', orderId)
@@ -281,6 +286,8 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
     const customer = Array.isArray(orderData.customers) 
       ? orderData.customers[0] 
       : orderData.customers;
+    
+    const originalMessage = orderData.original_message;
 
     // Format time for display
     const formatTime = (timeString: string): string => {
@@ -320,6 +327,11 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
       additionalComment: orderData.additional_comment || '',
       attachments: [], // TODO: Implement attachments from order_attachments table
       whatsappMessage: orderData.whatsapp_message || '',
+      originalMessage: originalMessage ? {
+        id: originalMessage.id,
+        content: originalMessage.content,
+        timestamp: originalMessage.created_at
+      } : null,
       status: orderData.status === 'CONFIRMED' ? 'CONFIRMED' : 
               orderData.status === 'REVIEW' ? 'REVIEW' : 'PENDING'
     };
@@ -408,13 +420,30 @@ export async function updateOrderProduct(
 ): Promise<void> {
   try {
     const distributorId = getCurrentDistributorId();
+    
+    // Enhanced debugging for unit_price issues
+    console.log('🐛 DEBUG: updateOrderProduct called with:', {
+      orderProductId,
+      updates,
+      updateKeys: Object.keys(updates),
+      hasUnitPrice: 'unit_price' in updates,
+      unitPriceValue: updates.unit_price,
+      unitPriceType: typeof updates.unit_price
+    });
+    
+    // Set distributor context for RLS
+    await supabase.rpc('set_distributor_context', { distributor_uuid: distributorId });
+    console.log('🔐 Set distributor context:', distributorId);
 
-    // Verify the order product belongs to the current distributor
-    const { data: orderProduct, error: fetchError } = await supabase
+    // Get current product data to calculate proper line_price
+    const { data: currentProduct, error: fetchError } = await supabase
       .from('order_products')
       .select(`
         id,
         order_id,
+        quantity,
+        unit_price,
+        line_price,
         orders!inner (
           distributor_id
         )
@@ -422,30 +451,95 @@ export async function updateOrderProduct(
       .eq('id', orderProductId)
       .single();
 
+    console.log('🔍 Current product data:', {
+      orderProductId,
+      distributorId,
+      currentProduct,
+      fetchError
+    });
+
     if (fetchError) {
+      console.error('❌ Fetch error:', fetchError);
       throw handleSupabaseError(fetchError);
     }
 
-    if (!orderProduct || orderProduct.orders.distributor_id !== distributorId) {
+    if (!currentProduct) {
+      console.error('❌ No order product found for ID:', orderProductId);
+      throw new OrderError(ORDER_ERROR_MESSAGES.ORDER_NOT_FOUND, 'ORDER_NOT_FOUND');
+    }
+
+    if (currentProduct.orders.distributor_id !== distributorId) {
+      console.error('❌ Permission denied - distributor mismatch:', {
+        expected: distributorId,
+        actual: currentProduct.orders.distributor_id
+      });
       throw new OrderError(ORDER_ERROR_MESSAGES.PERMISSION_DENIED, 'PERMISSION_DENIED');
     }
 
-    // Update the order product
-    const { error } = await supabase
+    console.log('✅ Security check passed');
+
+    // Calculate the correct line_price based on current and updated values
+    const newQuantity = updates.quantity !== undefined ? updates.quantity : currentProduct.quantity;
+    const newUnitPrice = updates.unit_price !== undefined ? updates.unit_price : currentProduct.unit_price;
+    const calculatedLinePrice = newQuantity * newUnitPrice;
+
+    // Prepare the final updates with calculated line_price
+    const finalUpdates = {
+      ...updates,
+      line_price: calculatedLinePrice, // Always recalculate line_price
+      updated_at: new Date().toISOString()
+    };
+
+    console.log('📡 Supabase update:', {
+      table: 'order_products',
+      id: orderProductId,
+      originalUpdates: updates,
+      finalUpdates: finalUpdates,
+      calculation: {
+        newQuantity,
+        newUnitPrice,
+        calculatedLinePrice
+      }
+    });
+
+    // Enhanced debugging: Log the exact Supabase call
+    console.log('🔍 About to call Supabase with:', {
+      table: 'order_products',
+      updateData: finalUpdates,
+      whereClause: `id = ${orderProductId}`,
+      expectingSelect: true
+    });
+
+    const { data, error, count } = await supabase
       .from('order_products')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', orderProductId);
+      .update(finalUpdates)
+      .eq('id', orderProductId)
+      .select();
+      
+    // Enhanced debugging: Log detailed results
+    console.log('📊 Detailed Supabase result:', {
+      success: !error,
+      error: error,
+      data: data,
+      count: count,
+      recordsAffected: data ? data.length : 0,
+      updatedRecord: data && data.length > 0 ? data[0] : null
+    });
 
     if (error) {
+      console.error('💥 Supabase error:', error);
       throw handleSupabaseError(error);
     }
 
+    console.log('✅ Supabase update result:', { 
+      data, 
+      count, 
+      recordsAffected: data ? data.length : 0 
+    });
+
     // Update the order's total amount if prices changed
     if (updates.unit_price !== undefined || updates.quantity !== undefined || updates.line_price !== undefined) {
-      await updateOrderTotal(orderProduct.order_id);
+      await updateOrderTotal(currentProduct.order_id);
     }
 
   } catch (error) {

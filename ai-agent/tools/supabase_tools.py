@@ -18,7 +18,7 @@ from decimal import Decimal
 
 from services.database import DatabaseService
 from schemas.message import MessageAnalysis, MessageUpdate
-from schemas.order import OrderCreation, OrderDatabaseInsert, OrderProductDatabaseInsert
+from schemas.order import OrderCreation, OrderDatabaseInsert, OrderProductDatabaseInsert, OrderProduct
 from schemas.product import CatalogProduct
 
 logger = logging.getLogger(__name__)
@@ -241,6 +241,9 @@ async def create_order(
             logger.debug(f"Created order record with ID: {order_id}")
             
             # PATTERN: Insert order products as separate records
+            # First, populate catalog prices for matched products
+            await _populate_catalog_prices(tx, order_data.products, order_data.distributor_id)
+            
             products_to_insert = []
             for line_order, product in enumerate(order_data.products, 1):
                 product_insert = OrderProductDatabaseInsert.from_order_product(
@@ -555,3 +558,86 @@ async def get_recent_orders(
     except Exception as e:
         logger.error(f"Failed to get recent orders: {e}")
         return []
+
+
+async def _populate_catalog_prices(
+    db: DatabaseService,
+    products: List[OrderProduct],
+    distributor_id: str
+) -> None:
+    """
+    Populate unit_price and line_price from product catalog for matched products.
+    
+    Modifies the OrderProduct objects in-place to set correct prices from catalog.
+    
+    Args:
+        db: Database service instance (or transaction)
+        products: List of OrderProduct objects to populate prices for
+        distributor_id: Distributor ID for multi-tenant filtering
+    """
+    try:
+        # Find products that have matched_product_id but missing prices
+        products_needing_prices = []
+        product_ids_to_lookup = set()
+        
+        for product in products:
+            if (product.matched_product_id and 
+                (product.unit_price is None or product.unit_price == 0)):
+                products_needing_prices.append(product)
+                product_ids_to_lookup.add(product.matched_product_id)
+        
+        if not product_ids_to_lookup:
+            logger.debug("No products need catalog price lookup")
+            return
+        
+        logger.info(f"Looking up catalog prices for {len(product_ids_to_lookup)} matched products")
+        
+        # Fetch catalog prices for matched products
+        # Use IN query for multiple IDs
+        catalog_data = []
+        for product_id in product_ids_to_lookup:
+            result = await db.execute_query(
+                table='products',
+                operation='select',
+                filters={'id': product_id},
+                distributor_id=distributor_id
+            )
+            if result:
+                catalog_data.extend(result)
+        
+        if not catalog_data:
+            logger.warning("No catalog data found for matched products")
+            return
+        
+        # Create lookup map: product_id -> catalog_price
+        price_lookup = {}
+        for catalog_item in catalog_data:
+            product_id = catalog_item['id']
+            unit_price = catalog_item.get('unit_price')
+            if unit_price is not None:
+                price_lookup[product_id] = Decimal(str(unit_price))
+                logger.debug(f"Found catalog price for {product_id}: ${unit_price}")
+        
+        # Update products with catalog prices
+        updated_count = 0
+        for product in products_needing_prices:
+            if product.matched_product_id in price_lookup:
+                catalog_price = price_lookup[product.matched_product_id]
+                
+                # Set unit_price from catalog
+                product.unit_price = catalog_price
+                
+                # Calculate line_price = quantity × unit_price
+                product.line_price = catalog_price * product.quantity
+                
+                logger.info(f"✅ Updated prices for '{product.product_name}': "
+                           f"unit_price=${catalog_price}, "
+                           f"line_price=${product.line_price} "
+                           f"(qty={product.quantity})")
+                updated_count += 1
+        
+        logger.info(f"Successfully populated catalog prices for {updated_count} products")
+        
+    except Exception as e:
+        logger.error(f"Failed to populate catalog prices: {e}")
+        # Don't raise - allow order creation to continue with 0.00 prices

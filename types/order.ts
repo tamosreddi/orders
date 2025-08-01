@@ -25,6 +25,11 @@ export interface OrderDetails {
   additionalComment: string;
   attachments: string[];
   whatsappMessage: string;
+  originalMessage?: {
+    id: string;
+    content: string;
+    timestamp: string;
+  } | null;
   status: 'CONFIRMED' | 'PENDING' | 'REVIEW';
 }
 

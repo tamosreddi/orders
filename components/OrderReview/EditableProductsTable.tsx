@@ -60,9 +60,18 @@ export function EditableProductsTable({
         if (field === 'unitPrice') updates.unit_price = updatedProduct.unitPrice;
         if (field === 'linePrice') updates.line_price = updatedProduct.linePrice;
         
+        console.log('🔄 Updating product:', {
+          productId: product.id,
+          field,
+          oldValue: product[field],
+          newValue: field === 'unitPrice' ? updatedProduct.unitPrice : value,
+          updates
+        });
+        
         await onUpdateProduct(product.id, updates);
+        console.log('✅ Product updated successfully');
       } catch (error) {
-        console.error('Failed to update product:', error);
+        console.error('❌ Failed to update product:', error);
         // Revert on error
         updatedProducts[index] = product;
         onProductsChange(updatedProducts);
@@ -156,7 +165,8 @@ export function EditableProductsTable({
     return (
       <div
         onClick={() => setEditingCell(cellId)}
-        className="cursor-pointer hover:bg-gray-50 px-2 py-1 rounded text-sm min-h-[24px] flex items-center"
+        className="cursor-pointer hover:bg-blue-50 hover:border hover:border-blue-200 px-2 py-1 rounded text-sm min-h-[24px] flex items-center transition-colors"
+        title="Click to edit"
       >
         {field === 'unitPrice' || field === 'linePrice' ? `$${Number(value).toFixed(2)}` : value}
       </div>

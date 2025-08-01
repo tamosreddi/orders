@@ -68,14 +68,27 @@ export default function OrderReviewPage() {
     setProducts(updatedProducts);
   };
   
-  const handleUpdateProduct = async (productId: string, updates: Partial<OrderProduct>) => {
+  const handleUpdateProduct = async (productId: string, updates: Partial<any>) => {
     try {
+      console.log('🐛 DEBUG: handleUpdateProduct called with:', {
+        productId,
+        updates,
+        updateKeys: Object.keys(updates)
+      });
+      
       const dbUpdates: Partial<{product_name: string; product_unit: string; quantity: number; unit_price: number; line_price: number}> = {};
       if ('name' in updates) dbUpdates.product_name = updates.name!;
       if ('unit' in updates) dbUpdates.product_unit = updates.unit!;
       if ('quantity' in updates) dbUpdates.quantity = updates.quantity!;
+      
+      // FIX: Handle both camelCase and snake_case for unit_price
       if ('unitPrice' in updates) dbUpdates.unit_price = updates.unitPrice!;
+      if ('unit_price' in updates) dbUpdates.unit_price = updates.unit_price!;
+      
       if ('linePrice' in updates) dbUpdates.line_price = updates.linePrice!;
+      if ('line_price' in updates) dbUpdates.line_price = updates.line_price!;
+      
+      console.log('🔄 Mapped to dbUpdates:', dbUpdates);
       
       await updateOrderProduct(productId, dbUpdates);
     } catch (error) {
@@ -256,23 +269,27 @@ export default function OrderReviewPage() {
           
           {/* Chat Messages - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-            <div className="bg-white rounded-lg p-3 max-w-xs">
-              <p className="text-sm whitespace-pre-line">
-                {orderDetails.whatsappMessage}
-              </p>
-              <div className="text-xs text-gray-500 mt-2">{orderDetails.receivedTime}</div>
-            </div>
-            
-            <div className="bg-white rounded-lg p-3 max-w-xs">
-              <p className="text-sm">¿Puedes añadir también yogur griego?</p>
-              <div className="flex items-center space-x-1 text-xs text-gray-500 mt-2">
-                <span>OK</span>
-                <div className="flex space-x-0.5">
-                  <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-                  <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
+            {/* Original Message */}
+            {orderDetails.originalMessage ? (
+              <div className="bg-white rounded-lg p-3 max-w-xs">
+                <p className="text-sm whitespace-pre-line">
+                  {orderDetails.originalMessage.content}
+                </p>
+                <div className="text-xs text-gray-500 mt-2">
+                  {new Date(orderDetails.originalMessage.timestamp).toLocaleTimeString('es-ES', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white rounded-lg p-3 max-w-xs">
+                <p className="text-sm whitespace-pre-line">
+                  {orderDetails.whatsappMessage}
+                </p>
+                <div className="text-xs text-gray-500 mt-2">{orderDetails.receivedTime}</div>
+              </div>
+            )}
           </div>
 
           {/* Attachments Section - Fixed */}
