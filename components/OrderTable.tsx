@@ -113,7 +113,7 @@ export function OrderTable({ orders, rowSelection, onRowSelectionChange }: Order
       header: 'Fecha de Envío',
       cell: (info) => {
         const deliveryDate = info.getValue();
-        if (!deliveryDate) {
+        if (!deliveryDate || deliveryDate === 'por confirmar') {
           return (
             <span className="text-sm text-text-muted">
               Fecha por confirmar
@@ -132,7 +132,7 @@ export function OrderTable({ orders, rowSelection, onRowSelectionChange }: Order
         
         return (
           <span className="text-sm text-text-default">
-            {date.toLocaleDateString('en-US', { 
+            {date.toLocaleDateString('es-ES', { 
               weekday: 'short',
               day: 'numeric',
               month: 'short',

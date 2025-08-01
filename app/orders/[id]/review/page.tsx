@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { X } from 'lucide-react';
 import { OrderDetails, OrderProduct } from '../../../../types/order';
 import { Customer } from '../../../../types/customer';
-import { getOrderById, updateOrderProduct, addOrderProduct, deleteOrderProduct, OrderError } from '../../../../lib/api/orders';
+import { getOrderById, updateOrderProduct, addOrderProduct, deleteOrderProduct, updateOrderDeliveryDate, OrderError } from '../../../../lib/api/orders';
 import { getCustomerByCode } from '../../../../lib/api/customers';
 import { EditableProductsTable } from '../../../../components/OrderReview/EditableProductsTable';
 import { ClickableCustomerDisplay } from '../../../../components/OrderReview/ClickableCustomerDisplay';
 import { CustomerDetailsPanel } from '../../../../components/customer_components/CustomerDetailsPanel';
+import { DatePicker } from '../../../../components/ui/DatePicker';
 
 export default function OrderReviewPage() {
   const params = useParams();
@@ -20,6 +22,7 @@ export default function OrderReviewPage() {
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<OrderProduct[]>([]);
   const [comment, setComment] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState<Date | null>(null);
   
   // Customer details panel state
   const [isCustomerPanelOpen, setIsCustomerPanelOpen] = useState(false);
@@ -34,6 +37,18 @@ export default function OrderReviewPage() {
           setOrderDetails(details);
           setProducts(details.products);
           setComment(details.additionalComment);
+          
+          // Parse delivery date
+          if (details.deliveryDate && details.deliveryDate !== 'por confirmar') {
+            try {
+              setDeliveryDate(new Date(details.deliveryDate));
+            } catch (error) {
+              console.warn('Invalid delivery date format:', details.deliveryDate);
+              setDeliveryDate(null);
+            }
+          } else {
+            setDeliveryDate(null);
+          }
         }
       } catch (error) {
         console.error('Error loading order details:', error);
@@ -93,6 +108,41 @@ export default function OrderReviewPage() {
     } catch (error) {
       console.error('Error deleting product:', error);
       throw error;
+    }
+  };
+  
+  const handleDeliveryDateChange = async (date: Date | null) => {
+    setDeliveryDate(date);
+    
+    if (date && orderDetails) {
+      try {
+        const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format for database
+        await updateOrderDeliveryDate(orderDetails.id, formattedDate);
+        
+        // Update local state
+        setOrderDetails({
+          ...orderDetails,
+          deliveryDate: formattedDate
+        });
+      } catch (error) {
+        console.error('Error updating delivery date:', error);
+        // Revert on error
+        setDeliveryDate(orderDetails.deliveryDate !== 'por confirmar' ? new Date(orderDetails.deliveryDate) : null);
+      }
+    } else if (!date && orderDetails) {
+      try {
+        await updateOrderDeliveryDate(orderDetails.id, 'por confirmar');
+        
+        // Update local state
+        setOrderDetails({
+          ...orderDetails,
+          deliveryDate: 'por confirmar'
+        });
+      } catch (error) {
+        console.error('Error updating delivery date:', error);
+        // Revert on error
+        setDeliveryDate(orderDetails.deliveryDate !== 'por confirmar' ? new Date(orderDetails.deliveryDate) : null);
+      }
     }
   };
 
@@ -163,7 +213,10 @@ export default function OrderReviewPage() {
             <span className="text-sm text-gray-400">2 de 54 pedidos</span>
           </div>
           <div className="flex items-center space-x-4">
-            <button className="text-reddi-navyblue text-sm hover:text-reddi-navyblue/70">
+            <button 
+              onClick={handleClose}
+              className="text-reddi-navyblue text-sm hover:text-reddi-navyblue/70"
+            >
               Guardar y Salir
             </button>
             <button 
@@ -179,13 +232,25 @@ export default function OrderReviewPage() {
       {/* Main Content */}
       <div className="flex h-[calc(100vh-80px)]">
         {/* Left Side - WhatsApp Display */}
-        <div className="w-1/2 bg-white border-r border-gray-200 flex flex-col">
+        <div className="w-2/5 bg-white border-r border-gray-200 flex flex-col">
           {/* WhatsApp Header - Fixed */}
           <div className="bg-teal-600 text-white p-3 flex items-center space-x-3 flex-shrink-0">
-            <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
+            <Image 
+              src={orderDetails.customer.avatar} 
+              alt={orderDetails.customer.name}
+              width={32}
+              height={32}
+              className="rounded-full object-cover"
+            />
             <div>
-              <div className="font-medium">Restaurante San Juan</div>
-              <div className="text-xs opacity-75">Vie, Jul 26</div>
+              <div className="font-medium">{orderDetails.customer.name}</div>
+              <div className="text-xs opacity-75">
+                {new Date(orderDetails.receivedDate).toLocaleDateString('es-ES', { 
+                  weekday: 'short', 
+                  day: 'numeric', 
+                  month: 'short' 
+                })}
+              </div>
             </div>
           </div>
           
@@ -230,7 +295,7 @@ export default function OrderReviewPage() {
         </div>
 
         {/* Right Side - Order Details */}
-        <div className="w-1/2 bg-white overflow-y-auto">
+        <div className="w-3/5 bg-white overflow-y-auto">
           {/* Review Notice */}
           <div className="bg-gray-100 border-b border-gray-200 shadow-sm">
             <div className="p-2 flex items-start space-x-2">
@@ -244,7 +309,7 @@ export default function OrderReviewPage() {
           </div>
 
           {/* Top Section - Now scrollable */}
-          <div className="p-6">
+          <div className="p-4">
 
             {/* Order Info */}
             <div className="grid grid-cols-2 gap-6 mb-6">
@@ -264,45 +329,37 @@ export default function OrderReviewPage() {
                 <label className="block text-sm font-medium text-gray-500 mb-1">
                   Enviado desde
                 </label>
-                <div className="text-sm text-reddi-navyblue">pedidos@finhshop.com</div>
+                <div className="text-sm text-reddi-navyblue">{orderDetails.channel}</div>
               </div>
             </div>
 
-            {/* Customer Info */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-500 mb-2">
-                Cliente
-              </label>
-              <ClickableCustomerDisplay
-                customerName={orderDetails.customer.name}
-                customerCode={orderDetails.customer.code}
-                customerAddress={orderDetails.customer.address}
-                onClick={handleCustomerClick}
-                loading={customerLoading}
-              />
-            </div>
-
-            {/* Delivery Date and Postal Code */}
-            <div className="grid grid-cols-2 gap-4 mb-2">
+            {/* Customer Info and Delivery Date */}
+            <div className="grid grid-cols-2 gap-6 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-500 mb-2">
+                  Cliente
+                </label>
+                <ClickableCustomerDisplay
+                  customerName={orderDetails.customer.name}
+                  customerCode={orderDetails.customer.code}
+                  customerAddress={orderDetails.customer.address}
+                  onClick={handleCustomerClick}
+                  loading={customerLoading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-2">
                   Fecha de entrega
                 </label>
-                <input
-                  type="text"
-                  defaultValue={orderDetails.deliveryDate === 'por confirmar' ? 'por confirmar' : new Date(orderDetails.deliveryDate).toLocaleDateString('es-ES')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Número postal
-                </label>
-                <input
-                  type="text"
-                  defaultValue={orderDetails.postalCode}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                />
+                <div className="max-w-xs">
+                  <DatePicker
+                    selected={deliveryDate}
+                    onChange={handleDeliveryDateChange}
+                    placeholderText="por confirmar"
+                    className="w-full"
+                    dateFormat="dd/MM/yyyy"
+                  />
+                </div>
               </div>
             </div>
 
@@ -320,7 +377,7 @@ export default function OrderReviewPage() {
           </div>
 
           {/* Products Table */}
-          <div className="px-6 mb-6">
+          <div className="px-4 mb-4">
             <EditableProductsTable 
               products={products} 
               onProductsChange={handleProductsChange}
@@ -331,7 +388,7 @@ export default function OrderReviewPage() {
           </div>
 
           {/* Comment Section */}
-          <div className="px-6 mb-6">
+          <div className="px-4 mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Comentario adicional
             </label>
@@ -346,7 +403,7 @@ export default function OrderReviewPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="px-6 pb-8">
+          <div className="px-4 pb-6">
             <div className="flex justify-end space-x-4">
               <button 
                 onClick={handleReject}

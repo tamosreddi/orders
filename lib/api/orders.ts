@@ -160,7 +160,7 @@ function mapSupabaseOrderToFrontend(
     channel: orderRow.channel,
     receivedDate: orderRow.received_date,
     receivedTime: formatTime(orderRow.received_time),
-    deliveryDate: 'por confirmar', // As requested by user
+    deliveryDate: orderRow.delivery_date || 'por confirmar',
     products: productCount,
     status: orderRow.status === 'CONFIRMED' ? 'CONFIRMED' : 
             orderRow.status === 'REVIEW' ? 'REVIEW' : 'PENDING'
@@ -584,6 +584,35 @@ export async function deleteOrderProduct(orderProductId: string): Promise<void> 
 
   } catch (error) {
     console.error('Error deleting order product:', error);
+    if (error instanceof OrderError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
+  }
+}
+
+/**
+ * Updates an order's delivery date
+ */
+export async function updateOrderDeliveryDate(orderId: string, deliveryDate: string): Promise<void> {
+  try {
+    const distributorId = getCurrentDistributorId();
+
+    const { error } = await supabase
+      .from('orders')
+      .update({ 
+        delivery_date: deliveryDate,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', orderId)
+      .eq('distributor_id', distributorId);
+
+    if (error) {
+      throw handleSupabaseError(error);
+    }
+
+  } catch (error) {
+    console.error('Error updating order delivery date:', error);
     if (error instanceof OrderError) {
       throw error;
     }

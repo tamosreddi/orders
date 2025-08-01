@@ -50,9 +50,6 @@ export function ClickableCustomerDisplay({
             <span className="font-medium text-gray-900">
               {customerName}
             </span>
-            <span className="text-gray-500">
-              ({customerCode})
-            </span>
             {loading && (
               <div className="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
             )}

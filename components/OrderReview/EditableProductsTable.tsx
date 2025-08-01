@@ -158,7 +158,7 @@ export function EditableProductsTable({
         onClick={() => setEditingCell(cellId)}
         className="cursor-pointer hover:bg-gray-50 px-2 py-1 rounded text-sm min-h-[24px] flex items-center"
       >
-        {field === 'unitPrice' || field === 'linePrice' ? `€ ${Number(value).toFixed(2)}` : value}
+        {field === 'unitPrice' || field === 'linePrice' ? `$${Number(value).toFixed(2)}` : value}
       </div>
     );
   };
@@ -193,10 +193,7 @@ export function EditableProductsTable({
             {products.map((product, index) => (
               <tr key={product.id} className="hover:bg-gray-50">
                 <td className="px-3 py-2 border-b">
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-500">{product.id}</span>
-                    {renderEditableCell(product.name, index, 'name', `${product.id}-name`)}
-                  </div>
+                  {renderEditableCell(product.name, index, 'name', `${product.id}-name`)}
                 </td>
                 <td className="px-3 py-2 border-b">
                   {renderEditableCell(product.unit, index, 'unit', `${product.id}-unit`)}
@@ -237,7 +234,7 @@ export function EditableProductsTable({
         {/* Total */}
         <div className="text-right">
           <span className="text-sm font-medium text-gray-900">
-            Precio total: €{totalAmount.toFixed(2)}
+            Precio total: ${totalAmount.toFixed(2)}
           </span>
         </div>
       </div>
