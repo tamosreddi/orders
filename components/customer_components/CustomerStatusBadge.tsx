@@ -14,25 +14,25 @@ export function CustomerStatusBadge({ status }: CustomerStatusBadgeProps) {
         return {
           dotColor: 'bg-state-success',
           textColor: 'text-state-success',
-          label: 'Ordering'
+          label: 'Ordenando'
         };
       case 'AT_RISK':
         return {
           dotColor: 'bg-state-warning',
           textColor: 'text-state-warning',
-          label: 'At risk'
+          label: 'En riesgo'
         };
       case 'STOPPED_ORDERING':
         return {
           dotColor: 'bg-red-500',
           textColor: 'text-red-500',
-          label: 'Stopped ordering'
+          label: 'Dejó de ordenar'
         };
       case 'NO_ORDERS_YET':
         return {
           dotColor: 'bg-gray-400',
           textColor: 'text-gray-400',
-          label: 'No orders yet'
+          label: 'Sin órdenes aún'
         };
       default:
         return {

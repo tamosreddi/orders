@@ -133,31 +133,31 @@ export function InviteCustomerPanel({
     const newErrors: Record<string, string> = {};
 
     if (!businessData.businessName.trim()) {
-      newErrors.businessName = 'Business name is required';
+      newErrors.businessName = 'El nombre del negocio es requerido';
     }
     if (!businessData.businessLocation.trim()) {
-      newErrors.businessLocation = 'Business location is required';
+      newErrors.businessLocation = 'La ubicación del negocio es requerida';
     }
 
     // Validate contacts
     const hasValidContact = businessData.contacts.some(contact => {
       if (!contact.name.trim()) {
-        newErrors[`contact-${contact.id}-name`] = 'Contact name is required';
+        newErrors[`contact-${contact.id}-name`] = 'El nombre del contacto es requerido';
         return false;
       }
       if (!contact.phone.trim() && !contact.email.trim()) {
-        newErrors[`contact-${contact.id}`] = 'Either phone or email is required';
+        newErrors[`contact-${contact.id}`] = 'Se requiere teléfono o correo electrónico';
         return false;
       }
       if (contact.email && !/\S+@\S+\.\S+/.test(contact.email)) {
-        newErrors[`contact-${contact.id}-email`] = 'Please enter a valid email address';
+        newErrors[`contact-${contact.id}-email`] = 'Por favor ingrese un correo electrónico válido';
         return false;
       }
       return true;
     });
 
     if (!hasValidContact) {
-      newErrors.contacts = 'At least one valid contact is required';
+      newErrors.contacts = 'Se requiere al menos un contacto válido';
     }
 
     setErrors(newErrors);
@@ -232,7 +232,7 @@ export function InviteCustomerPanel({
       console.error(`🚨 [InvitePanel] Failed to ${action} business:`, error);
       
       // Show user-friendly error message
-      let errorMessage = `Failed to ${action} business. Please try again.`;
+      let errorMessage = `No se pudo ${action === 'invite' ? 'invitar' : 'guardar'} el negocio. Por favor intente de nuevo.`;
       
       if (error?.message) {
         errorMessage = error.message;
@@ -333,16 +333,16 @@ export function InviteCustomerPanel({
       />
       
       {/* Panel */}
-      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-surface-0 shadow-modal transform transition-transform duration-medium flex flex-col">
+      <div className="absolute right-0 top-0 h-full w-full max-w-lg bg-surface-0 shadow-modal transform transition-transform duration-medium flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-surface-border">
           <h2 className="text-2xl font-semibold text-text-default">
-            Add New Business
+            Agregar Nuevo Negocio
           </h2>
           <button
             onClick={onClose}
             className="p-2 text-text-muted hover:text-text-default transition-colors duration-fast rounded-md hover:bg-surface-alt"
-            aria-label="Close invite panel"
+            aria-label="Cerrar panel de invitación"
           >
             <X className="h-5 w-5" />
           </button>
@@ -358,7 +358,7 @@ export function InviteCustomerPanel({
                 className="flex items-center justify-between w-full text-left"
               >
                 <h3 className="text-body font-semibold text-text-default">
-                  Business Details
+                  Detalles del Negocio
                 </h3>
                 {collapsedSections.businessDetails ? (
                   <ChevronDown className="h-5 w-5 text-text-muted" />
@@ -383,7 +383,7 @@ export function InviteCustomerPanel({
                       </div>
                       <button className="flex items-center space-x-2 px-3 py-2 border border-surface-border text-text-default rounded-md hover:bg-surface-alt transition-colors duration-fast">
                         <Upload className="h-4 w-4" />
-                        <span className="text-caption">Upload Logo</span>
+                        <span className="text-caption">Cargar Logo</span>
                       </button>
                     </div>
                   </div>
@@ -393,7 +393,7 @@ export function InviteCustomerPanel({
                     {/* Business Name */}
                     <div>
                       <label className="block text-caption text-text-muted mb-2">
-                        Business Name *
+                        Nombre del Negocio *
                       </label>
                       <input
                         type="text"
@@ -402,7 +402,7 @@ export function InviteCustomerPanel({
                         className={`w-full px-3 py-2 border rounded-md text-caption focus:outline-none focus:ring-2 focus:ring-brand-navy-500 transition-colors duration-fast ${
                           errors.businessName ? 'border-red-500' : 'border-surface-border'
                         }`}
-                        placeholder="Enter business name"
+                        placeholder="Ingrese el nombre del negocio"
                       />
                       {errors.businessName && (
                         <p className="text-red-500 text-xs mt-1">{errors.businessName}</p>
@@ -412,22 +412,22 @@ export function InviteCustomerPanel({
                     {/* Business Code */}
                     <div>
                       <label className="block text-caption text-text-muted mb-2">
-                        Business Code
+                        Código del Negocio
                       </label>
                       <input
                         type="text"
                         value={businessData.businessCode}
                         onChange={(e) => handleBusinessInputChange('businessCode', e.target.value)}
                         className="w-full px-3 py-2 border border-surface-border rounded-md text-caption focus:outline-none focus:ring-2 focus:ring-brand-navy-500 transition-colors duration-fast"
-                        placeholder="Auto-generated"
+                        placeholder="Auto-generado"
                       />
-                      <p className="text-xs text-text-muted mt-1">Auto-generated based on business name, but editable</p>
+                      <p className="text-xs text-text-muted mt-1">Auto-generado basado en el nombre del negocio, pero editable</p>
                     </div>
 
                     {/* Business Location */}
                     <div>
                       <label className="block text-caption text-text-muted mb-2">
-                        Business Location *
+                        Ubicación del Negocio *
                       </label>
                       <input
                         type="text"
@@ -436,7 +436,7 @@ export function InviteCustomerPanel({
                         className={`w-full px-3 py-2 border rounded-md text-caption focus:outline-none focus:ring-2 focus:ring-brand-navy-500 transition-colors duration-fast ${
                           errors.businessLocation ? 'border-red-500' : 'border-surface-border'
                         }`}
-                        placeholder="Enter business location"
+                        placeholder="Ingrese la ubicación del negocio"
                       />
                       {errors.businessLocation && (
                         <p className="text-red-500 text-xs mt-1">{errors.businessLocation}</p>
@@ -447,13 +447,13 @@ export function InviteCustomerPanel({
                   {/* Business Labels */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-caption font-medium text-text-muted">Business Labels</h4>
+                      <h4 className="text-caption font-medium text-text-muted">Etiquetas del Negocio</h4>
                       <button
                         onClick={() => setIsEditingLabels(true)}
                         className="text-caption font-medium text-text-default uppercase hover:opacity-90 transition-opacity duration-fast"
                       >
                         <Plus className="h-4 w-4 inline mr-1" />
-                        Add Label
+                        Agregar Etiqueta
                       </button>
                     </div>
 
@@ -483,7 +483,7 @@ export function InviteCustomerPanel({
                         <div className="space-y-3">
                           <input
                             type="text"
-                            placeholder="Label name"
+                            placeholder="Nombre de etiqueta"
                             value={newLabelName}
                             onChange={(e) => setNewLabelName(e.target.value)}
                             className="w-full px-3 py-2 border border-surface-border rounded-md text-caption focus:outline-none focus:ring-2 focus:ring-brand-navy-500"
@@ -507,7 +507,7 @@ export function InviteCustomerPanel({
                               onClick={handleAddLabel}
                               className="flex-1 py-3 px-4 bg-state-success text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast"
                             >
-                              Add
+                              Agregar
                             </button>
                             <button
                               onClick={() => {
@@ -517,7 +517,7 @@ export function InviteCustomerPanel({
                               }}
                               className="flex-1 py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast"
                             >
-                              Cancel
+                              Cancelar
                             </button>
                           </div>
                         </div>
@@ -535,7 +535,7 @@ export function InviteCustomerPanel({
                 className="flex items-center justify-between w-full text-left"
               >
                 <h3 className="text-body font-semibold text-text-default">
-                  Contact Information
+                  Información de Contacto
                 </h3>
                 {collapsedSections.contactInfo ? (
                   <ChevronDown className="h-5 w-5 text-text-muted" />
@@ -552,7 +552,7 @@ export function InviteCustomerPanel({
                         <div className="flex items-center space-x-2">
                           <User className="h-4 w-4 text-text-muted" />
                           <h4 className="text-caption font-medium text-text-default">
-                            {index === 0 ? 'Primary Contact' : `Contact ${index + 1}`}
+                            {index === 0 ? 'Contacto Principal' : `Contacto ${index + 1}`}
                           </h4>
                         </div>
                         {index > 0 && (
@@ -568,7 +568,7 @@ export function InviteCustomerPanel({
                       {/* Contact Name */}
                       <div>
                         <label className="block text-caption text-text-muted mb-2">
-                          Contact Name *
+                          Nombre del Contacto *
                         </label>
                         <input
                           type="text"
@@ -577,7 +577,7 @@ export function InviteCustomerPanel({
                           className={`w-full px-3 py-2 border rounded-md text-caption focus:outline-none focus:ring-2 focus:ring-brand-navy-500 transition-colors duration-fast ${
                             errors[`contact-${contact.id}-name`] ? 'border-red-500' : 'border-surface-border'
                           }`}
-                          placeholder="Enter contact name"
+                          placeholder="Ingrese el nombre del contacto"
                         />
                         {errors[`contact-${contact.id}-name`] && (
                           <p className="text-red-500 text-xs mt-1">{errors[`contact-${contact.id}-name`]}</p>
@@ -588,7 +588,7 @@ export function InviteCustomerPanel({
                       <div>
                         <label className="flex items-center text-caption text-text-muted mb-2">
                           <Phone className="h-4 w-4 mr-2" />
-                          Phone Number (SMS, WhatsApp)
+                          Número de Teléfono (SMS, WhatsApp)
                         </label>
                         <div className="flex items-center space-x-2">
                           <input
@@ -607,7 +607,7 @@ export function InviteCustomerPanel({
                                 : 'bg-surface-alt text-text-muted hover:bg-surface-border'
                             }`}
                           >
-                            Preferred
+                            Preferido
                           </button>
                         </div>
                       </div>
@@ -616,7 +616,7 @@ export function InviteCustomerPanel({
                       <div>
                         <label className="flex items-center text-caption text-text-muted mb-2">
                           <Mail className="h-4 w-4 mr-2" />
-                          Email Address
+                          Dirección de Correo"
                         </label>
                         <div className="flex items-center space-x-2">
                           <input
@@ -626,7 +626,7 @@ export function InviteCustomerPanel({
                             className={`flex-1 px-3 py-2 border rounded-md text-caption focus:outline-none focus:ring-2 focus:ring-brand-navy-500 transition-colors duration-fast ${
                               errors[`contact-${contact.id}-email`] ? 'border-red-500' : 'border-surface-border'
                             }`}
-                            placeholder="contact@business.com"
+                            placeholder="contacto@negocio.com"
                           />
                           <button
                             type="button"
@@ -637,7 +637,7 @@ export function InviteCustomerPanel({
                                 : 'bg-surface-alt text-text-muted hover:bg-surface-border'
                             }`}
                           >
-                            Preferred
+                            Preferido
                           </button>
                         </div>
                         {errors[`contact-${contact.id}-email`] && (
@@ -655,7 +655,7 @@ export function InviteCustomerPanel({
                           className="rounded border-surface-border text-brand-navy-500 focus:ring-brand-navy-500"
                         />
                         <label htmlFor={`can-place-orders-${contact.id}`} className="text-caption text-text-muted">
-                          Can place orders
+                          Puede realizar pedidos
                         </label>
                       </div>
 
@@ -671,7 +671,7 @@ export function InviteCustomerPanel({
                     className="flex items-center space-x-2 w-full p-3 border-2 border-dashed border-surface-border rounded-lg text-text-muted hover:border-brand-navy-500 hover:text-brand-navy-500 transition-colors duration-fast"
                   >
                     <Plus className="h-4 w-4" />
-                    <span className="text-caption font-medium">Add Another Contact</span>
+                    <span className="text-caption font-medium">Agregar Otro Contacto</span>
                   </button>
 
                   {errors.contacts && (
@@ -722,10 +722,10 @@ export function InviteCustomerPanel({
                   {isLoading ? (
                     <div className="flex items-center justify-center space-x-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Saving Business...</span>
+                      <span>Guardando Negocio...</span>
                     </div>
                   ) : (
-                    'Save Business'
+                    'Guardar Negocio'
                   )}
                 </button>
                 <button 

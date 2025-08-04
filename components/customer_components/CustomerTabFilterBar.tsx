@@ -30,8 +30,7 @@ export function CustomerTabFilterBar({
   };
 
   const tabs = [
-    { key: 'ACTIVE' as const, label: 'Active' },
-    { key: 'PENDING' as const, label: 'Pending' },
+    { key: 'ACTIVE' as const, label: 'Activos' },
   ];
 
   return (
@@ -66,7 +65,7 @@ export function CustomerTabFilterBar({
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <input
             type="text"
-            placeholder="Search customers..."
+            placeholder="Buscar clientes..."
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-navy-500 focus:border-transparent w-64 transition-all duration-fast"
@@ -81,7 +80,7 @@ export function CustomerTabFilterBar({
           className="flex items-center gap-2 px-3 py-2 text-sm text-text-muted border border-gray-300 rounded-md hover:text-text-default hover:border-gray-400 transition-colors"
         >
           <Filter size={16} />
-          Filter
+          Filtros
           <ChevronDown size={16} />
         </button>
         
@@ -91,7 +90,7 @@ export function CustomerTabFilterBar({
           className="flex items-center space-x-2 px-4 py-2 bg-reddi-navyblue text-white rounded-md text-sm font-medium hover:opacity-90 transition-opacity duration-fast"
         >
           <Plus className="h-4 w-4" />
-          <span>INVITE NEW CUSTOMER</span>
+          <span>INVITAR NUEVO CLIENTE</span>
         </button>
       </div>
     </div>

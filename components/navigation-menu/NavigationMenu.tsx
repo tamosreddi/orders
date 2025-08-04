@@ -10,40 +10,40 @@ import { useHasUnreadMessages } from '@/lib/hooks/useHasUnreadMessages';
 const baseNavigationItems: NavigationItem[] = [
   {
     id: 'messages',
-    label: 'Messages',
+    label: 'Mensajes',
     href: '/messages',
     icon: 'MessageCircle',
     isDisabled: false
   },
   {
     id: 'orders',
-    label: 'Orders',
+    label: 'Órdenes',
     href: '/orders',
     icon: 'ShoppingCart'
   },
   {
     id: 'customers',
-    label: 'Customers',
+    label: 'Clientes',
     href: '/customers',
     icon: 'Users'
   },
   {
     id: 'catalog',
-    label: 'Catalog',
+    label: 'Catálogo',
     href: '/catalog',
     icon: 'Tag',
     isDisabled: true
   },
   {
     id: 'settings',
-    label: 'Settings',
+    label: 'Configuración',
     href: '/settings',
     icon: 'Settings',
     isDisabled: true
   },
   {
     id: 'help',
-    label: 'Get help',
+    label: 'Ayuda',
     href: '/help',
     icon: 'HelpCircle',
     isDisabled: true

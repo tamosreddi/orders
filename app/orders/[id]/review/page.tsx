@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { X } from 'lucide-react';
 import { OrderDetails, OrderProduct } from '../../../../types/order';
 import { Customer } from '../../../../types/customer';
-import { getOrderById, updateOrderProduct, addOrderProduct, deleteOrderProduct, updateOrderDeliveryDate, OrderError } from '../../../../lib/api/orders';
+import { getOrderById, updateOrderProduct, addOrderProduct, deleteOrderProduct, updateOrderDeliveryDate, updateOrderStatus, OrderError } from '../../../../lib/api/orders';
 import { getCustomerByCode } from '../../../../lib/api/customers';
 import { EditableProductsTable } from '../../../../components/OrderReview/EditableProductsTable';
 import { ClickableCustomerDisplay } from '../../../../components/OrderReview/ClickableCustomerDisplay';
@@ -159,10 +159,19 @@ export default function OrderReviewPage() {
     }
   };
 
-  const handleAccept = () => {
-    // TODO: Implement order acceptance
-    console.log('Accepting order with products:', products);
-    router.push('/orders');
+  const handleAccept = async () => {
+    try {
+      // Update order status to CONFIRMED (accepted)
+      await updateOrderStatus(orderId, 'CONFIRMED');
+      
+      console.log('Order accepted successfully:', orderId);
+      
+      // Redirect to orders page
+      router.push('/orders');
+    } catch (error) {
+      console.error('Error accepting order:', error);
+      // TODO: Show error notification to user
+    }
   };
 
   const handleReject = () => {
@@ -217,14 +226,7 @@ export default function OrderReviewPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-xs font-medium">📍</span>
-            </div>
-            <span className="text-sm text-gray-600">En revisión</span>
-            <span className="text-sm text-gray-400">2 de 54 pedidos</span>
-          </div>
+        <div className="flex items-center justify-end">
           <div className="flex items-center space-x-4">
             <button 
               onClick={handleClose}

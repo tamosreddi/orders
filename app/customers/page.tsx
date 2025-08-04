@@ -277,6 +277,7 @@ export default function CustomersPage() {
         onClose={() => setIsFilterPopupOpen(false)}
         filters={filters}
         onFiltersChange={handleFiltersChange}
+        customers={customers}
       />
 
       {/* Customer Details Panel */}

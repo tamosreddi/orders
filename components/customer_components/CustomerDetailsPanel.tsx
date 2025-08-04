@@ -52,7 +52,7 @@ const EditableField = ({
         autoFocus={false}
       />
     ) : (
-      <span className="text-caption text-text-default">{value || 'Not provided'}</span>
+      <span className="text-caption text-text-default">{value || 'No proporcionado'}</span>
     )}
   </div>
 );
@@ -157,7 +157,7 @@ export function CustomerDetailsPanel({
         customerId: customer.id,
         labelData: { name: newLabelName.trim(), color: newLabelColor, value: '10789' }
       });
-      setLabelError(error instanceof Error ? error.message : 'Failed to add label');
+      setLabelError(error instanceof Error ? error.message : 'Error al agregar etiqueta');
     } finally {
       setIsLabelLoading(false);
     }
@@ -183,7 +183,7 @@ export function CustomerDetailsPanel({
 
     } catch (error) {
       console.error('Error removing label:', error);
-      setLabelError(error instanceof Error ? error.message : 'Failed to remove label');
+      setLabelError(error instanceof Error ? error.message : 'Error al eliminar etiqueta');
     } finally {
       setIsLabelLoading(false);
     }
@@ -245,7 +245,7 @@ export function CustomerDetailsPanel({
       console.log('🎯 [CustomerDetails] Customer updated successfully');
     } catch (error) {
       console.error('🚨 [CustomerDetails] Error updating customer:', error);
-      setEditError(error instanceof Error ? error.message : 'Failed to update customer');
+      setEditError(error instanceof Error ? error.message : 'Error al actualizar cliente');
     } finally {
       setIsLoading(false);
     }
@@ -259,14 +259,14 @@ export function CustomerDetailsPanel({
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('es-MX', {
       style: 'currency',
       currency: 'USD'
     }).format(amount);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -289,7 +289,7 @@ export function CustomerDetailsPanel({
     // Check if customer has orders
     if (customer.totalOrders === 0) {
       // Simple alert for no orders
-      alert('This customer has no orders yet.');
+      alert('Este cliente aún no tiene órdenes.');
       return;
     }
     
@@ -313,12 +313,12 @@ export function CustomerDetailsPanel({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-surface-border">
           <h2 className="text-2xl font-semibold text-text-default">
-            Customer Details
+            Detalles del Cliente
           </h2>
           <button
             onClick={onClose}
             className="p-2 text-text-muted hover:text-text-default transition-colors duration-fast rounded-md hover:bg-surface-alt"
-            aria-label="Close customer details"
+            aria-label="Cerrar detalles del cliente"
           >
             <X className="h-5 w-5" />
           </button>
@@ -331,7 +331,7 @@ export function CustomerDetailsPanel({
           <div className="space-y-4">
             <div>
               <h3 className="text-body font-semibold text-text-default mb-3">
-                Customer Summary
+                Resumen del Cliente
               </h3>
               <div className="flex items-center space-x-3 p-4 bg-surface-alt rounded-lg">
                 <Image
@@ -357,7 +357,7 @@ export function CustomerDetailsPanel({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-body font-semibold text-text-default">
-                Customer Information
+                Información del Cliente
               </h3>
               {!isEditing && !isEditingLabels && (
                 <button
@@ -366,7 +366,7 @@ export function CustomerDetailsPanel({
                   style={{ minHeight: '28px' }}
                 >
                   <Edit2 className="h-4 w-4 mr-1" />
-                  <span>Edit</span>
+                  <span>Editar</span>
                 </button>
               )}
             </div>
@@ -386,7 +386,7 @@ export function CustomerDetailsPanel({
             <div className="space-y-3">
               {/* Editable Fields */}
               <EditableField 
-                label="Business Name" 
+                label="Nombre del Negocio" 
                 value={customer.name} 
                 field="businessName" 
                 isEditing={isEditing}
@@ -396,7 +396,7 @@ export function CustomerDetailsPanel({
               />
               
               <EditableField 
-                label="Contact Person" 
+                label="Persona de Contacto" 
                 value={customer.customerName || ''} 
                 field="customerName" 
                 isEditing={isEditing}
@@ -406,7 +406,7 @@ export function CustomerDetailsPanel({
               />
               
               <EditableField 
-                label="Email" 
+                label="Correo Electrónico" 
                 value={customer.email || ''} 
                 field="email" 
                 type="email"
@@ -417,7 +417,7 @@ export function CustomerDetailsPanel({
               />
               
               <EditableField 
-                label="Phone" 
+                label="Teléfono" 
                 value={customer.phone || ''} 
                 field="phone" 
                 type="tel"
@@ -428,7 +428,7 @@ export function CustomerDetailsPanel({
               />
               
               <EditableField 
-                label="Address" 
+                label="Dirección" 
                 value={customer.address || ''} 
                 field="address" 
                 isEditing={isEditing}
@@ -438,7 +438,7 @@ export function CustomerDetailsPanel({
               />
               
               <div className="flex justify-between items-center">
-                <span className="text-caption text-text-muted">Code</span>
+                <span className="text-caption text-text-muted">Código</span>
                 <span className="text-caption text-text-default">{customer.code || 'Not provided'}</span>
               </div>
             </div>
@@ -446,32 +446,32 @@ export function CustomerDetailsPanel({
 
           {/* New Business Information Section */}
           <div className="space-y-4 mt-8">
-            <h3 className="text-body font-semibold text-text-default">Business Information</h3>
+            <h3 className="text-body font-semibold text-text-default">Información del Negocio</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-caption text-text-muted">Status</span>
+                <span className="text-caption text-text-muted">Estatus</span>
                 <CustomerStatusBadge status={customer.status} />
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-caption text-text-muted">Total Orders</span>
+                <span className="text-caption text-text-muted">Total de Órdenes</span>
                 <span className="text-caption text-text-default">{customer.totalOrders}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-caption text-text-muted">Total Spent</span>
+                <span className="text-caption text-text-muted">Total Gastado</span>
                 <span className="text-caption text-text-default">
                   {formatCurrency(customer.totalSpent)}
                 </span>
               </div>
               {customer.lastOrdered && (
                 <div className="flex justify-between items-center">
-                  <span className="text-caption text-text-muted">Last Order</span>
+                  <span className="text-caption text-text-muted">Última Orden</span>
                   <span className="text-caption text-text-default">
                     {formatDate(customer.lastOrdered)}
                   </span>
                 </div>
               )}
               <div className="flex justify-between items-center">
-                <span className="text-caption text-text-muted">Joined</span>
+                <span className="text-caption text-text-muted">Se unió</span>
                 <span className="text-caption text-text-default">
                   {formatDate(customer.joinedDate)}
                 </span>
@@ -482,13 +482,13 @@ export function CustomerDetailsPanel({
           {/* Labels Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-body font-semibold text-text-default">Labels</h3>
+              <h3 className="text-body font-semibold text-text-default">Etiquetas</h3>
               <button
                 onClick={() => setIsEditingLabels(true)}
                 className="text-caption font-medium text-text-default uppercase hover:opacity-90 transition-opacity duration-fast"
               >
                 <Plus className="h-4 w-4 inline mr-1" />
-                Add Label
+                Agregar Etiqueta
               </button>
             </div>
 
@@ -522,7 +522,7 @@ export function CustomerDetailsPanel({
                 <div className="space-y-3">
                   <input
                     type="text"
-                    placeholder="Label name"
+                    placeholder="Nombre de etiqueta"
                     value={newLabelName}
                     onChange={(e) => setNewLabelName(e.target.value)}
                     className="w-full px-3 py-2 border border-surface-border rounded-md text-caption focus:outline-none focus:ring-2 focus:ring-brand-navy-500"
@@ -550,10 +550,10 @@ export function CustomerDetailsPanel({
                       {isLabelLoading ? (
                         <div className="flex items-center justify-center space-x-2">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Adding...</span>
+                          <span>Agregando...</span>
                         </div>
                       ) : (
-                        'Add'
+                        'Agregar'
                       )}
                     </button>
                     <button
@@ -566,7 +566,7 @@ export function CustomerDetailsPanel({
                       disabled={isLabelLoading}
                       className="flex-1 py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Cancel
+                      Cancelar
                     </button>
                   </div>
                 </div>
@@ -588,12 +588,12 @@ export function CustomerDetailsPanel({
                     {isLoading ? (
                       <div className="flex items-center justify-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span>Saving Changes...</span>
+                        <span>Guardando Cambios...</span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center space-x-2">
                         <Save className="h-4 w-4" />
-                        <span>Save Changes</span>
+                        <span>Guardar Cambios</span>
                       </div>
                     )}
                   </button>
@@ -604,7 +604,7 @@ export function CustomerDetailsPanel({
                   >
                     <div className="flex items-center justify-center space-x-2">
                       <XCircle className="h-4 w-4" />
-                      <span>Cancel</span>
+                      <span>Cancelar</span>
                     </div>
                   </button>
                 </>
@@ -615,13 +615,13 @@ export function CustomerDetailsPanel({
                     onClick={handleStartChat}
                     className="w-full py-3 px-4 bg-state-success text-white rounded-md font-medium hover:opacity-90 transition-opacity duration-fast"
                   >
-                    Start Chat
+                    Iniciar Chat
                   </button>
                   <button 
                     onClick={handleViewOrderHistory}
                     className="w-full py-3 px-4 border border-surface-border text-text-default rounded-md font-medium hover:bg-surface-alt transition-colors duration-fast"
                   >
-                    View Order History
+                    Ver Historial de Órdenes
                   </button>
                 </>
               )}

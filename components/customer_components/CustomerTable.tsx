@@ -49,7 +49,7 @@ export function CustomerTable({
           className="w-4 h-4 rounded border-gray-300 text-reddi-navyblue focus:ring-reddi-navyblue"
           checked={table.getIsAllRowsSelected()}
           onChange={table.getToggleAllRowsSelectedHandler()}
-          aria-label="Select all customers"
+          aria-label="Seleccionar todos los clientes"
         />
       ),
       cell: ({ row }) => (
@@ -58,7 +58,7 @@ export function CustomerTable({
           className="w-4 h-4 rounded border-gray-300 text-reddi-navyblue focus:ring-reddi-navyblue"
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
-          aria-label={`Select customer ${row.original.id}`}
+          aria-label={`Seleccionar cliente ${row.original.id}`}
         />
       ),
       enableSorting: false,
@@ -66,7 +66,7 @@ export function CustomerTable({
 
     // Customer Info column
     columnHelper.accessor('name', {
-      header: 'Customer info',
+      header: 'Cliente',
       cell: (info) => {
         const customer = info.row.original;
         return (
@@ -91,19 +91,19 @@ export function CustomerTable({
 
     // Labels column
     columnHelper.accessor('labels', {
-      header: 'Labels',
+      header: 'Etiquetas',
       cell: (info) => <CustomerLabels labels={info.getValue()} />,
       enableSorting: false,
     }),
 
     // Last ordered column
     columnHelper.accessor('lastOrdered', {
-      header: 'Last ordered',
+      header: 'Última Orden',
       cell: (info) => {
         const date = info.getValue();
         if (!date) return <span className="text-gray-400">-</span>;
         
-        const formattedDate = new Date(date).toLocaleDateString('en-US', {
+        const formattedDate = new Date(date).toLocaleDateString('es-ES', {
           month: 'short',
           day: 'numeric',
           year: 'numeric'
@@ -127,12 +127,12 @@ export function CustomerTable({
 
     // Expected order column
     columnHelper.accessor('expectedOrder', {
-      header: 'Expected order',
+      header: 'Orden Esperada',
       cell: (info) => {
         const date = info.getValue();
         if (!date) return <span className="text-gray-400">-</span>;
         
-        const formattedDate = new Date(date).toLocaleDateString('en-US', {
+        const formattedDate = new Date(date).toLocaleDateString('es-ES', {
           month: 'short',
           day: 'numeric',
           year: 'numeric'
@@ -156,7 +156,7 @@ export function CustomerTable({
 
     // Status column
     columnHelper.accessor('status', {
-      header: 'Status',
+      header: 'Estatus',
       cell: (info) => <CustomerStatusBadge status={info.getValue()} />,
       enableSorting: false,
     }),
@@ -164,12 +164,12 @@ export function CustomerTable({
     // Actions column
     columnHelper.display({
       id: 'actions',
-      header: 'Actions',
+      header: 'Acciones',
       cell: ({ row }) => (
         <button
           className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
           disabled
-          title="Message customer (coming soon)"
+          title="Mensaje al cliente (próximamente)"
         >
           <MessageCircle className="w-4 h-4" />
         </button>

@@ -197,21 +197,21 @@ export async function getOrders(): Promise<Order[]> {
       return [];
     }
 
-    // Get product counts for all orders in one query
+    // Get product quantities for all orders in one query
     const orderIds = ordersWithCustomers.map(o => o.id);
-    const { data: productCounts, error: productCountError } = await supabase
+    const { data: productData, error: productCountError } = await supabase
       .from('order_products')
-      .select('order_id')
+      .select('order_id, quantity')
       .in('order_id', orderIds);
 
     if (productCountError) {
-      console.warn('Failed to fetch product counts:', productCountError.message);
+      console.warn('Failed to fetch product quantities:', productCountError.message);
     }
 
-    // Count products by order_id
+    // Sum quantities by order_id (total items per order)
     const productCountMap: Record<string, number> = {};
-    productCounts?.forEach(pc => {
-      productCountMap[pc.order_id] = (productCountMap[pc.order_id] || 0) + 1;
+    productData?.forEach(pd => {
+      productCountMap[pd.order_id] = (productCountMap[pd.order_id] || 0) + pd.quantity;
     });
 
     // Map to frontend format

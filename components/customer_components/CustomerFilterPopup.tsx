@@ -2,32 +2,63 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar } from 'lucide-react';
-import { CustomerStatus, CustomerFilterState, PREDEFINED_LABELS } from '../../types/customer';
+import { CustomerStatus, CustomerFilterState, Customer } from '../../types/customer';
 
 interface CustomerFilterPopupProps {
   isOpen: boolean;
   onClose: () => void;
   filters: CustomerFilterState;
   onFiltersChange: (filters: CustomerFilterState) => void;
+  customers: Customer[];
 }
 
 export function CustomerFilterPopup({ 
   isOpen, 
   onClose, 
   filters, 
-  onFiltersChange 
+  onFiltersChange,
+  customers 
 }: CustomerFilterPopupProps) {
   const [localFilters, setLocalFilters] = useState<CustomerFilterState>(filters);
+
+  // Get unique labels from actual customers
+  const actualLabels = useMemo(() => {
+    const labelsMap = new Map();
+    customers.forEach(customer => {
+      customer.labels.forEach(label => {
+        labelsMap.set(label.name, { name: label.name, color: label.color });
+      });
+    });
+    return Array.from(labelsMap.values());
+  }, [customers]);
+
+  // Handle click outside to close
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isOpen && target && !target.closest('.filter-popup-content')) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const statusOptions: { value: CustomerStatus; label: string }[] = [
-    { value: 'ORDERING', label: 'Ordering' },
-    { value: 'AT_RISK', label: 'At risk' },
-    { value: 'STOPPED_ORDERING', label: 'Stopped ordering' },
-    { value: 'NO_ORDERS_YET', label: 'No orders yet' },
+    { value: 'ORDERING', label: 'Ordenando' },
+    { value: 'AT_RISK', label: 'En riesgo' },
+    { value: 'STOPPED_ORDERING', label: 'Dejó de ordenar' },
+    { value: 'NO_ORDERS_YET', label: 'Sin órdenes aún' },
   ];
 
   const handleStatusChange = (status: CustomerStatus) => {
@@ -80,10 +111,10 @@ export function CustomerFilterPopup({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-96 max-h-[80vh] overflow-y-auto">
+      <div className="filter-popup-content bg-white rounded-lg p-6 w-[28rem] max-h-[80vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Filter Customers</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Filtrar Clientes</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
@@ -94,7 +125,7 @@ export function CustomerFilterPopup({
 
         {/* Status Filter */}
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Status</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Estatus</h4>
           <div className="space-y-2">
             {statusOptions.map((option) => (
               <label key={option.value} className="flex items-center">
@@ -112,9 +143,9 @@ export function CustomerFilterPopup({
 
         {/* Labels Filter */}
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Labels</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Etiquetas</h4>
           <div className="space-y-2">
-            {PREDEFINED_LABELS.map((label) => (
+            {actualLabels.map((label) => (
               <label key={label.name} className="flex items-center">
                 <input
                   type="checkbox"
@@ -136,10 +167,10 @@ export function CustomerFilterPopup({
 
         {/* Date Range Filter */}
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Date Range</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Rango de Fechas</h4>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">From</label>
+              <label className="block text-xs text-gray-500 mb-1">Desde</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
@@ -151,7 +182,7 @@ export function CustomerFilterPopup({
               </div>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">To</label>
+              <label className="block text-xs text-gray-500 mb-1">Hasta</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
@@ -171,20 +202,20 @@ export function CustomerFilterPopup({
             onClick={handleClear}
             className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
           >
-            Clear all
+            Limpiar todo
           </button>
           <div className="flex space-x-3">
             <button
               onClick={onClose}
               className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               onClick={handleApply}
               className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700"
             >
-              Apply filters
+              Aplicar filtros
             </button>
           </div>
         </div>

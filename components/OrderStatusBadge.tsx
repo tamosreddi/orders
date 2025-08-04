@@ -13,7 +13,7 @@ export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
         return {
           dotColor: 'bg-state-success',
           textColor: 'text-state-success',
-          label: 'Confirmada'
+          label: 'Aceptada'
         };
       case 'PENDING':
         return {
