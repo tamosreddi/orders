@@ -41,11 +41,20 @@ customers (👤 Business Customer)
 conversations (💬 Channel Conversation)
     ├── 1 ──→ ∞ messages
     ├── ?──→ ∞ orders (optional link)
+    ├── 1 ──→ ∞ conversation_order_sessions
     └── 1 ←── 1 customers
 
 messages (📝 Individual Message)
     ├── 1 ──→ ∞ ai_responses
     ├── ?──→ 1 orders (can trigger order)
+    ├── ?──→ 1 conversation_order_sessions (part of session)
+    └── 1 ←── 1 conversations
+
+conversation_order_sessions (🛒 Order Collection Session)
+    ├── 1 ──→ ∞ order_session_items
+    ├── 1 ──→ ∞ order_session_events
+    ├── 1 ──→ ∞ messages (session messages)
+    ├── ?──→ 1 orders (resulting order)
     └── 1 ←── 1 conversations
 ```
 
@@ -56,11 +65,18 @@ orders (📦 Customer Order)
     ├── 1 ──→ ∞ order_attachments
     ├── ?──→ 1 conversations (if from message)
     ├── ?──→ 1 messages (source message)
+    ├── ?──→ 1 conversation_order_sessions (if from session)
     └── 1 ←── 1 customers
 
 order_products (📋 Line Item)
     ├── ?──→ 1 products (future link)
     └── 1 ←── 1 orders
+
+order_session_items (🛒 Session Cart Item)
+    └── 1 ←── 1 conversation_order_sessions
+
+order_session_events (📊 Session Audit Trail)
+    └── 1 ←── 1 conversation_order_sessions
 ```
 
 ---
@@ -177,12 +193,17 @@ external_message_mappings (🔄 Message Sync)
 ├─ 💬 MESSAGING
 │  ├─ conversations ──→ messages
 │  ├─ messages ──→ ai_responses
-│  └─ external_message_mappings
+│  ├─ external_message_mappings
+│  └─ ORDER SESSIONS
+│     ├─ conversation_order_sessions ──→ order_session_items
+│     ├─ conversation_order_sessions ──→ order_session_events
+│     └─ conversation_order_sessions ←─? orders (optional)
 │
 ├─ 📦 ORDERS
 │  ├─ orders ──→ order_products
 │  ├─ orders ──→ order_attachments  
-│  └─ orders ←─? conversations (optional)
+│  ├─ orders ←─? conversations (optional)
+│  └─ orders ←─? conversation_order_sessions (optional)
 │
 ├─ 🛍️ PRODUCTS
 │  ├─ product_categories ──→ products
@@ -260,7 +281,24 @@ external_message_mappings (🔄 Message Sync)
 🎯 Future AI Performance
 ```
 
-### **4. Webhook Integration Flow**
+### **4. Multi-Message Order Collection Flow**
+```
+💬 First Order Message
+    ↓ creates
+🛒 Order Session
+    ↓ begins collecting
+📋 Session Items
+    ↓ continuing through
+💬 Additional Messages
+    ↓ updating items in
+🛒 Session Cart
+    ↓ finally creating
+📦 Complete Order
+    ↓ logging entire process in
+📊 Session Events
+```
+
+### **5. Webhook Integration Flow**
 ```
 📦 Order Created
     ↓ triggers
@@ -290,7 +328,10 @@ external_message_mappings (🔄 Message Sync)
 ### **Order Integrity**
 - **Orders ➔ Products**: Line items reference products (future enhancement)
 - **Conversations ➔ Orders**: Orders can be linked to source conversations
+- **Order Sessions ➔ Orders**: Multi-message orders track collection sessions
 - **Customers ➔ Orders**: Every order must belong to a customer
+- **Session Items**: Track items collected during multi-message conversations
+- **Session Events**: Complete audit trail of order collection process
 
 ### **Security & Audit**
 - **All sensitive operations logged in `data_access_audit`**
@@ -316,6 +357,11 @@ user_profiles.distributor_id → distributors.id
 messages.conversation_id → conversations.id
 ai_responses.message_id → messages.id
 
+-- Order session chain (CASCADE DELETE)
+conversation_order_sessions.conversation_id → conversations.id
+order_session_items.session_id → conversation_order_sessions.id
+order_session_events.session_id → conversation_order_sessions.id
+
 -- Order chain (CASCADE DELETE)
 order_products.order_id → orders.id
 order_attachments.order_id → orders.id
@@ -330,6 +376,8 @@ product_bundle_items.bundle_id → product_bundles.id
 -- Optional links that can be broken
 orders.conversation_id → conversations.id (SET NULL)
 orders.ai_source_message_id → messages.id (SET NULL)
+orders.order_session_id → conversation_order_sessions.id (SET NULL)
+messages.order_session_id → conversation_order_sessions.id (SET NULL)
 product_categories.parent_category_id → product_categories.id (SET NULL)
 ```
 
@@ -340,7 +388,7 @@ product_categories.parent_category_id → product_categories.id (SET NULL)
 ### **For New Engineers**
 
 1. **Start with `distributors`** - every query should be tenant-aware
-2. **Follow the customer journey**: Customer → Conversation → Message → AI Response → Order
+2. **Follow the customer journey**: Customer → Conversation → Message → AI Response → Order (or Order Session → Order)
 3. **AI enhances everything**: Most user actions generate AI metadata
 4. **Security is layered**: RLS + Audit + PII Detection + Encryption
 5. **Integrations are event-driven**: Changes trigger webhooks to external systems
@@ -368,6 +416,16 @@ SELECT SUM(cost_cents)/100.0 as total_cost_usd,
 FROM ai_usage_metrics 
 WHERE distributor_id = get_current_distributor_id()
 AND date >= date_trunc('month', now());
+
+-- Get order session with collected items
+SELECT cos.*, 
+       COUNT(osi.id) as item_count,
+       o.id as final_order_id
+FROM conversation_order_sessions cos
+LEFT JOIN order_session_items osi ON osi.session_id = cos.id
+LEFT JOIN orders o ON o.order_session_id = cos.id
+WHERE cos.conversation_id = $1
+GROUP BY cos.id, o.id;
 ```
 
 This relationship guide helps engineers understand how data flows through the system and how tables connect to support the AI-powered order management platform. 🚀

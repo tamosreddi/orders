@@ -19,7 +19,7 @@ class MessageIntent(BaseModel):
     with their message.
     """
     
-    intent: Literal["BUY", "QUESTION", "COMPLAINT", "FOLLOW_UP", "OTHER"] = Field(
+    intent: Literal["BUY", "MODIFY", "CONFIRM", "QUESTION", "COMPLAINT", "FOLLOW_UP", "OTHER"] = Field(
         ..., 
         description="The classified intent of the customer's message"
     )
@@ -133,7 +133,7 @@ class MessageAnalysis(BaseModel):
     Complete analysis result for a customer message.
     
     Contains all AI-extracted information from a message including intent,
-    products, and metadata for processing.
+    products, session information, and metadata for processing.
     """
     
     message_id: str = Field(
@@ -178,6 +178,32 @@ class MessageAnalysis(BaseModel):
         description="Suggested clarifying question to send to the customer"
     )
     
+    # Session-aware fields
+    session_id: Optional[str] = Field(
+        None,
+        description="ID of the order session this message belongs to"
+    )
+    
+    session_status: Optional[str] = Field(
+        None,
+        description="Current status of the order session (ACTIVE, COLLECTING, REVIEWING, CLOSED)"
+    )
+    
+    session_action: Optional[str] = Field(
+        None,
+        description="Action taken on the session (START, EXTEND, CLOSE, NONE)"
+    )
+    
+    is_session_starter: bool = Field(
+        default=False,
+        description="Whether this message started a new order session"
+    )
+    
+    is_session_closer: bool = Field(
+        default=False,
+        description="Whether this message closed an order session"
+    )
+    
     @validator('customer_notes')
     def validate_customer_notes(cls, v):
         """Clean customer notes if provided."""
@@ -208,7 +234,7 @@ class MessageAnalysis(BaseModel):
     @property
     def has_order_intent(self) -> bool:
         """Check if this message has ordering intent."""
-        return self.intent.intent == "BUY"
+        return self.intent.intent in ["BUY", "MODIFY", "CONFIRM"]
     
     @property
     def is_high_confidence(self) -> bool:

@@ -13,6 +13,92 @@ from datetime import datetime, date
 from decimal import Decimal
 
 
+class OrderRequest(BaseModel):
+    """
+    Order request model for session consolidation.
+    
+    Used by the Order Session Manager to create orders from consolidated sessions.
+    Similar to OrderCreation but includes session-specific fields.
+    """
+    
+    customer_id: str = Field(
+        ...,
+        min_length=1,
+        description="UUID of the customer placing the order"
+    )
+    
+    distributor_id: str = Field(
+        ...,
+        min_length=1,
+        description="UUID of the distributor processing the order"
+    )
+    
+    conversation_id: Optional[str] = Field(
+        None,
+        description="ID of the conversation where this order originated"
+    )
+    
+    channel: str = Field(
+        default="WHATSAPP",
+        description="Communication channel where order was received"
+    )
+    
+    status: str = Field(
+        default="REVIEW",
+        description="Initial order status"
+    )
+    
+    total_amount: Decimal = Field(
+        default=Decimal('0.00'),
+        description="Total order amount"
+    )
+    
+    additional_comment: Optional[str] = Field(
+        None,
+        description="Additional notes or special instructions"
+    )
+    
+    ai_generated: bool = Field(
+        default=True,
+        description="Whether this order was AI-generated"
+    )
+    
+    ai_confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Overall AI confidence for the entire order"
+    )
+    
+    ai_source_message_id: Optional[str] = Field(
+        None,
+        description="Primary message ID that started the order session"
+    )
+    
+    requires_review: bool = Field(
+        default=True,
+        description="Whether this order requires human review"
+    )
+    
+    delivery_date: Optional[str] = Field(
+        None,
+        description="Requested delivery date if mentioned"
+    )
+    
+    products: List[OrderProduct] = Field(
+        default_factory=list,
+        description="List of products in the order"
+    )
+    
+    def dict(self, **kwargs):
+        """Override dict method to ensure proper serialization."""
+        data = super().dict(**kwargs)
+        # Convert Decimal to float for JSON serialization
+        if 'total_amount' in data and data['total_amount'] is not None:
+            data['total_amount'] = float(data['total_amount'])
+        return data
+
+
 class OrderProduct(BaseModel):
     """
     Individual product line item within an order.
@@ -166,6 +252,17 @@ class OrderCreation(BaseModel):
         description="List of message IDs that contributed to this order"
     )
     
+    # Session-aware fields
+    is_consolidated: bool = Field(
+        default=False,
+        description="Whether this order was created by consolidating multiple messages"
+    )
+    
+    order_session_id: Optional[str] = Field(
+        None,
+        description="ID of the order session that created this order"
+    )
+    
     @validator('additional_comment')
     def validate_additional_comment(cls, v):
         """Clean additional comment if provided."""
@@ -249,6 +346,8 @@ class OrderDatabaseInsert(BaseModel):
     ai_confidence: float
     ai_source_message_id: Optional[str] = None
     requires_review: bool = Field(default=True)
+    is_consolidated: bool = Field(default=False)
+    order_session_id: Optional[str] = None
     
     @classmethod
     def from_order_creation(
@@ -279,7 +378,9 @@ class OrderDatabaseInsert(BaseModel):
             additional_comment=order.additional_comment,
             ai_confidence=order.ai_confidence,
             ai_source_message_id=order.source_message_ids[0] if order.source_message_ids else None,
-            requires_review=order.requires_review
+            requires_review=order.requires_review,
+            is_consolidated=order.is_consolidated,
+            order_session_id=order.order_session_id
         )
 
 

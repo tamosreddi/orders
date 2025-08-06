@@ -35,6 +35,7 @@ Every message, order, and product interaction is enhanced with AI processing and
 | **👥 Customer Management** | customers, customer_labels, customer_label_assignments | Customer data and categorization |
 | **💬 Messaging System** | conversations, messages, external_message_mappings | Multi-channel communication |
 | **📦 Order Management** | orders, order_products, order_attachments | Order processing and fulfillment |
+| **🎯 Order Sessions** | conversation_order_sessions, order_session_items, order_session_events | Order collection state management |
 | **🛍️ Product Catalog** | products, product_categories, product_variants, product_bundles | Product management and AI matching |
 | **🤖 AI System** | ai_responses, ai_usage_metrics, ai_errors, ai_training_data | AI processing and optimization |
 | **🔐 Security & Privacy** | data_access_audit, pii_detection_results, encryption_keys | Compliance and data protection |
@@ -285,6 +286,7 @@ Every message, order, and product interaction is enhanced with AI processing and
 - `ai_extracted_products`: JSON array of products AI identified in the message
 - `ai_suggested_responses`: JSON array of AI-generated response suggestions
 - `order_context_id`: Soft reference to order if message created/relates to an order
+- `order_session_id`: Links message to an order collection session for grouping related order messages
 - `thread_position`: Message sequence number in conversation
 - `reply_to_message_id`: If replying to specific message, references that message
 - `external_message_id`: ID from external system (WhatsApp, SMS provider)
@@ -293,6 +295,7 @@ Every message, order, and product interaction is enhanced with AI processing and
 
 **Relationships**:
 - ⬅️ **conversations**: Each message belongs to exactly one conversation
+- ⬅️ **conversation_order_sessions**: Message can be part of an order collection session
 - ➡️ **ai_responses**: AI can generate multiple analysis responses per message
 - ➡️ **orders**: Message can trigger automatic order creation
 - ⬅️ **messages** (reply_to): Messages can reference other messages in thread
@@ -326,6 +329,8 @@ Every message, order, and product interaction is enhanced with AI processing and
 - `ai_generated`: TRUE if AI created this order from a message
 - `ai_confidence`: AI's confidence level in order extraction (0.0-1.0)
 - `ai_source_message_id`: Which message AI used to create this order
+- `order_session_id`: Links order to the session that created it
+- `is_consolidated`: TRUE if this is the final consolidated order from a session
 - `requires_review`: TRUE if order needs human review before processing
 - `reviewed_by`: User who reviewed the order (if applicable)
 - `reviewed_at`: When the order was reviewed
@@ -335,6 +340,7 @@ Every message, order, and product interaction is enhanced with AI processing and
 **Relationships**:
 - ⬅️ **customers**: Each order belongs to exactly one customer
 - ⬅️ **conversations**: Orders can be linked to the conversation where they originated
+- ⬅️ **conversation_order_sessions**: Orders can be created from an order collection session
 - ⬅️ **distributors**: Each order belongs to exactly one distributor
 - ➡️ **order_products**: Order contains multiple product line items
 - ➡️ **order_attachments**: Order can have file attachments (photos, documents)
@@ -379,6 +385,113 @@ Every message, order, and product interaction is enhanced with AI processing and
 **How It Works**: When an order is created (manually or by AI), each product becomes a separate line item here. AI attempts to match line items to the distributor's product catalog using various matching algorithms. The system tracks how confident it is in both the extraction and the catalog matching to enable continuous improvement.
 
 **Why It Exists**: Provides detailed order composition with intelligent product matching, enabling accurate order processing while capturing data to improve AI extraction and product recognition over time.
+
+---
+
+## 🎯 **Order Collection Sessions**
+
+### **conversation_order_sessions**
+**Purpose**: Manages order collection sessions within conversations. Implements a state machine for tracking the order lifecycle from initial collection to consolidation.
+
+**Key Fields** (Complete Column List):
+- `id`: Unique session identifier
+- `conversation_id`: Which conversation this session belongs to
+- `distributor_id`: Which distributor owns this session
+- `status`: ACTIVE, COLLECTING, REVIEWING, CLOSED - session state machine
+- `started_at`: When session was created
+- `collecting_started_at`: When actual order collection began
+- `review_started_at`: When review phase started
+- `closed_at`: When session was closed
+- `outcome`: CONFIRMED, CANCELLED, TIMEOUT, ABANDONED - how session ended
+- `outcome_reason`: Additional context for the outcome
+- `consolidated_order_id`: References final consolidated order
+- `session_metadata`: JSON storage for session-specific data
+- `ai_confidence_avg`: Average AI confidence across session
+- `ai_interactions_count`: Number of AI interactions
+- `auto_close_timeout_minutes`: Minutes before auto-closing inactive sessions
+- `reminder_sent_at`: When reminder was sent for inactive session
+- `created_at`, `updated_at`: Standard timestamps
+- `created_by`: User/system that created the session
+- `closed_by`: User/system that closed the session
+
+**Relationships**:
+- ⬅️ **conversations**: Each session belongs to one conversation
+- ⬅️ **distributors**: Each session belongs to one distributor
+- ➡️ **messages**: Messages can be linked to a session
+- ➡️ **order_session_items**: Session contains collected items
+- ➡️ **order_session_events**: Session generates audit events
+- ➡️ **orders**: Session creates a consolidated order when confirmed
+
+**How It Works**: When AI detects ordering intent in a conversation, it creates a session to manage the collection process. The session moves through states: ACTIVE (initial) → COLLECTING (gathering items) → REVIEWING (confirming with customer) → CLOSED (completed). Messages and extracted items are linked to the session, providing context and grouping. When confirmed, all items are consolidated into a single order.
+
+**Why It Exists**: Provides structured order collection management, enabling AI to handle complex multi-message order flows while maintaining state, context, and proper customer interaction throughout the ordering process.
+
+---
+
+### **order_session_items**
+**Purpose**: Tracks individual items collected during a session before consolidation. Stores products extracted from messages with their status and confidence.
+
+**Key Fields** (Complete Column List):
+- `id`: Unique item identifier
+- `order_session_id`: Which session this item belongs to
+- `product_id`: Reference to product catalog (optional)
+- `product_name`: Product name (stored for history)
+- `product_code`: Product code for reference
+- `quantity`: Number of units requested
+- `unit_price`: Price per unit
+- `source_message_id`: Which message contained this item
+- `ai_extracted`: TRUE if AI extracted this item
+- `ai_confidence`: AI's confidence in extraction (0.0-1.0)
+- `status`: PENDING, CONFIRMED, REMOVED - item state
+- `added_at`: When item was extracted/added
+- `confirmed_at`: When customer confirmed item
+- `removed_at`: When item was removed
+- `item_metadata`: JSON for additional item data
+
+**Relationships**:
+- ⬅️ **conversation_order_sessions**: Each item belongs to one session
+- ⬅️ **products**: Items can reference catalog products
+- ⬅️ **messages**: Items track their source message
+
+**How It Works**: As AI processes messages in a session, it extracts product requests and creates items here. Items start as PENDING and move to CONFIRMED when the customer approves them during review. The system preserves product names and codes even if products are later deleted from the catalog.
+
+**Why It Exists**: Enables granular tracking of order composition during collection, allowing customers to review and modify individual items before final order creation.
+
+---
+
+### **order_session_events**
+**Purpose**: Audit trail for all events within an order session. Provides complete visibility into session lifecycle and customer interactions.
+
+**Key Fields** (Complete Column List):
+- `id`: Unique event identifier
+- `order_session_id`: Which session this event belongs to
+- `event_type`: Type of event (SESSION_STARTED, STATUS_CHANGED, ITEM_ADDED, etc.)
+- `event_data`: JSON with event-specific details
+- `triggered_by`: User/system that triggered the event
+- `message_id`: Related message if applicable
+- `created_at`: When event occurred
+
+**Event Types**:
+- SESSION_STARTED: Session created
+- SESSION_CLOSED: Session ended
+- STATUS_CHANGED: Session moved to new state
+- ITEM_ADDED: Product added to session
+- ITEM_REMOVED: Product removed from session
+- ITEM_MODIFIED: Quantity/details changed
+- REVIEW_REQUESTED: Customer asked to review
+- ORDER_CONFIRMED: Customer confirmed order
+- ORDER_CANCELLED: Customer cancelled
+- REMINDER_SENT: Inactivity reminder sent
+- TIMEOUT_WARNING: Session about to timeout
+- AI_PROCESSING: AI analyzed message
+
+**Relationships**:
+- ⬅️ **conversation_order_sessions**: Each event belongs to one session
+- ⬅️ **messages**: Events can reference triggering messages
+
+**How It Works**: Every significant action in a session generates an event record with contextual data. This creates an immutable audit trail for compliance, debugging, and analytics. Events are automatically created by triggers and application code.
+
+**Why It Exists**: Provides complete transparency into order collection process, enabling troubleshooting, compliance auditing, and insights into customer behavior patterns.
 
 ---
 
@@ -766,6 +879,23 @@ Every message, order, and product interaction is enhanced with AI processing and
 🎯 Future AI responses improve
 ```
 
+### **Order Session Flow**
+```
+💬 Customer starts ordering in conversation
+    ↓
+🎯 Session created in `conversation_order_sessions`
+    ↓
+📝 AI extracts items → `order_session_items`
+    ↓
+🔄 Multiple messages add/modify items
+    ↓
+👀 Customer reviews collected items
+    ↓
+✅ Session confirmed → Consolidated `order` created
+    ↓
+📊 All events logged in `order_session_events`
+```
+
 ---
 
 ## 💡 **Key Design Principles**
@@ -856,6 +986,19 @@ SELECT date_trunc('month', date) as month,
 FROM ai_usage_metrics 
 WHERE distributor_id = get_current_distributor_id()
 GROUP BY month ORDER BY month;
+```
+
+### **For Order Sessions**
+```sql
+-- Get active order sessions with item counts
+SELECT s.*, 
+       COUNT(DISTINCT i.id) as total_items,
+       COALESCE(SUM(i.quantity * i.unit_price), 0) as total_value
+FROM conversation_order_sessions s
+LEFT JOIN order_session_items i ON i.order_session_id = s.id
+WHERE s.status IN ('ACTIVE', 'COLLECTING', 'REVIEWING')
+  AND s.distributor_id = get_current_distributor_id()
+GROUP BY s.id;
 ```
 
 This database schema provides a robust foundation for an AI-powered, multi-tenant order management platform with enterprise-grade security and real-time capabilities. 🚀

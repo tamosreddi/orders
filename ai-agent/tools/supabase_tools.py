@@ -74,6 +74,59 @@ async def create_distributor_message(
         return None
 
 
+async def create_customer_message(
+    database: DatabaseService,
+    conversation_id: str,
+    content: str,
+    customer_id: str,
+    message_type: str = 'TEXT',
+    channel: str = 'WHATSAPP'
+) -> Optional[str]:
+    """
+    Create a message from a customer.
+    
+    Args:
+        database: Database service instance
+        conversation_id: ID of the conversation
+        content: Message content from customer
+        customer_id: Customer ID who sent the message
+        message_type: Type of message (default: TEXT)
+        channel: Channel the message came from (default: WHATSAPP)
+        
+    Returns:
+        Message ID if successful, None if failed
+    """
+    try:
+        message_data = {
+            'conversation_id': conversation_id,
+            'content': content,
+            'is_from_customer': True,  # This is from the customer
+            'message_type': message_type,
+            'status': 'RECEIVED',
+            'ai_processed': False,  # Not yet processed by AI
+            'channel': channel,
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        result = await database.insert_single(
+            table='messages',
+            data=message_data
+        )
+        
+        if result:
+            message_id = result.get('id')
+            logger.info(f"✅ Created customer message {message_id} in conversation {conversation_id}")
+            return message_id
+        
+        logger.error("Failed to create customer message - no result returned")
+        return None
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to create customer message: {e}")
+        return None
+
+
 async def fetch_unprocessed_messages(
     db: DatabaseService, 
     distributor_id: str, 

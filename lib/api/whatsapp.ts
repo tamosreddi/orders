@@ -494,6 +494,41 @@ export async function processWhatsAppMessage(
     });
     console.log(`💬 Message created: ${message.id}`);
 
+    // Step 6: Optional AI Agent Processing (Two-way door!)
+    const useAIAgent = process.env.USE_AI_AGENT_WEBHOOK === 'true';
+    
+    if (useAIAgent) {
+      console.log(`🤖 Calling autonomous AI agent for message: ${message.id}`);
+      try {
+        const aiAgentUrl = process.env.AI_AGENT_URL || 'http://localhost:8001';
+        
+        const aiResponse = await fetch(`${aiAgentUrl}/process-message-background`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message_id: message.id,
+            customer_id: customer.id,
+            conversation_id: conversation.id,
+            content: payload.Body,
+            distributor_id: distributorId,
+            channel: 'WHATSAPP'
+          })
+        });
+
+        if (aiResponse.ok) {
+          console.log(`✅ AI agent processing queued for message: ${message.id}`);
+        } else {
+          console.error(`❌ AI agent processing failed: ${aiResponse.status}`);
+        }
+      } catch (aiError) {
+        console.error(`⚠️ AI agent integration error (continuing anyway):`, aiError);
+      }
+    } else {
+      console.log(`📝 Using current system (AI agent disabled)`);
+    }
+
     console.log(`✅ WhatsApp message processing complete`);
 
     return {

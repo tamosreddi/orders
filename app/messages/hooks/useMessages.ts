@@ -452,7 +452,7 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
     
     // Set up messages subscription with better handling
     const messagesSubscription = supabase
-      .channel(`messages_changes_${Date.now()}`) // Unique channel name
+      .channel(`messages-${distributorId}`) // Stable channel name per distributor
       .on('postgres_changes', 
         { 
           event: '*', 
@@ -523,7 +523,7 @@ export function useMessages({ distributorId, conversationId }: UseMessagesOption
 
     // Set up conversations subscription
     const conversationsSubscription = supabase
-      .channel(`conversations_changes_${Date.now()}`) // Unique channel name
+      .channel(`conversations-${distributorId}`) // Stable channel name per distributor
       .on('postgres_changes', 
         { 
           event: '*', 

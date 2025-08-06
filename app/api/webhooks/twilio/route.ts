@@ -44,32 +44,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
 
     // CRITICAL: Validate Twilio signature for security
+    // Skip signature validation in test mode
+    const skipValidation = process.env.TWILIO_SKIP_SIGNATURE_VALIDATION === 'true';
+    
     const signature = request.headers.get('x-twilio-signature');
-    if (!signature) {
+    if (!signature && !skipValidation) {
       console.error('❌ Missing Twilio signature header');
       return new NextResponse('Missing signature', { status: 401 });
     }
 
-    // Construct the exact URL Twilio used to send the webhook
-    const url = process.env.NEXT_PUBLIC_WEBHOOK_URL;
-    if (!url) {
-      console.error('❌ Missing webhook URL configuration');
-      return new NextResponse('Configuration error', { status: 500 });
+    // Only do signature validation if not in test mode
+    let isSignatureValid = true;
+    
+    if (!skipValidation) {
+      // Construct the exact URL Twilio used to send the webhook
+      const url = process.env.NEXT_PUBLIC_WEBHOOK_URL;
+      if (!url) {
+        console.error('❌ Missing webhook URL configuration');
+        return new NextResponse('Configuration error', { status: 500 });
+      }
+
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      if (!authToken) {
+        console.error('❌ Missing TWILIO_AUTH_TOKEN configuration');
+        return new NextResponse('Configuration error', { status: 500 });
+      }
+
+      isSignatureValid = validateTwilioSignature(
+        authToken,
+        signature!,
+        url,
+        payload
+      );
+
+      if (!isSignatureValid) {
+        console.error('❌ Twilio signature validation failed');
+        return new NextResponse('Unauthorized', { status: 401 });
+      }
+      
+      console.log('✅ Twilio signature validated');
+    } else {
+      console.log('🧪 Signature validation skipped (test mode)');
     }
-
-    const isSignatureValid = validateTwilioSignature(
-      process.env.TWILIO_AUTH_TOKEN!,
-      signature,
-      url,
-      payload
-    );
-
-    if (!isSignatureValid) {
-      console.error('❌ Twilio signature validation failed');
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    console.log('✅ Twilio signature validated');
 
     // Validate webhook payload structure
     const validationResult = validateWebhookPayload(payload);
@@ -228,7 +244,7 @@ async function triggerAIAgentProcessing(messageData: {
   channel: string;
 }) {
   const AI_AGENT_URL = process.env.AI_AGENT_URL || 'http://localhost:8001';
-  const endpoint = `${AI_AGENT_URL}/process-message-background`;
+  const endpoint = `${AI_AGENT_URL}/process-message`;
   
   console.log(`🔄 Calling AI agent at: ${endpoint}`);
   

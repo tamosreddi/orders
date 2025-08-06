@@ -1,12 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Bot, User, ShoppingCart, TrendingUp, Star, Clock, ArrowRight } from 'lucide-react';
+import { Bot, User, ShoppingCart, TrendingUp, Star, Clock, ArrowRight, Package, AlertCircle, CheckCircle } from 'lucide-react';
 import { Conversation } from '../types/conversation';
 import { Message } from '../types/message';
 import { useCustomerOrders } from '@/lib/hooks/useCustomerOrders';
+
+// Order session types
+interface OrderSessionItem {
+  id: string;
+  product_name: string;
+  quantity: number;
+  product_unit: string;
+  ai_confidence: number;
+  original_text: string;
+}
+
+interface OrderSession {
+  id: string;
+  status: 'ACTIVE' | 'COLLECTING' | 'REVIEWING' | 'CLOSED';
+  started_at: string;
+  last_activity_at: string;
+  expires_at: string;
+  total_messages_count: number;
+  confidence_score: number;
+  items?: OrderSessionItem[];
+}
 
 interface AIAssistantPanelProps {
   conversationId: string | null;
@@ -26,10 +47,98 @@ export function AIAssistantPanel({
   onViewCustomerOrders
 }: AIAssistantPanelProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [activeSession, setActiveSession] = useState<OrderSession | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(false);
   const router = useRouter();
   
   // Fetch real customer order statistics
   const { orderStats, loading: orderStatsLoading } = useCustomerOrders(conversation?.customerId || null);
+
+  // Fetch active order session for this conversation
+  useEffect(() => {
+    if (!conversationId) return;
+
+    // DISABLED: Order sessions feature not active yet
+    // Remove this to clean up logs until migration is applied
+    setSessionLoading(false);
+    setActiveSession(null);
+    
+    // TODO: Re-enable when order sessions migration is applied
+    /*
+    const fetchActiveSession = async () => {
+      setSessionLoading(true);
+      try {
+        const response = await fetch(`/api/order-sessions/active?conversationId=${conversationId}`);
+        
+        if (response.ok) {
+          const sessionData = await response.json();
+          setActiveSession(sessionData);
+        } else {
+          setActiveSession(null);
+        }
+      } catch (error) {
+        console.error('Failed to fetch active session:', error);
+        setActiveSession(null);
+      } finally {
+        setSessionLoading(false);
+      }
+    };
+
+    fetchActiveSession();
+    
+    // Poll for session updates every 10 seconds
+    const interval = setInterval(fetchActiveSession, 10000);
+    
+    return () => clearInterval(interval);
+    */
+  }, [conversationId]);
+
+  // Handle session actions
+  const handleCloseSession = async () => {
+    if (!activeSession) return;
+    
+    try {
+      setIsProcessing(true);
+      const response = await fetch(`/api/order-sessions/${activeSession.id}/close`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.order_created) {
+          // Session closed and order created successfully
+          setActiveSession(null);
+          // Optionally redirect to order review
+          if (result.order_id) {
+            router.push(`/orders/${result.order_id}/review`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to close session:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancelSession = async () => {
+    if (!activeSession) return;
+    
+    try {
+      setIsProcessing(true);
+      const response = await fetch(`/api/order-sessions/${activeSession.id}/cancel`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        setActiveSession(null);
+      }
+    } catch (error) {
+      console.error('Failed to cancel session:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   if (!conversationId || !conversation) {
     return (
@@ -168,7 +277,8 @@ export function AIAssistantPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* Status Indicator */}
+        {/* Status Indicator - Hidden for now */}
+        {/*
         <div className="p-4 border-b border-border-subtle">
           <div className="flex items-center justify-center">
             <span className="inline-flex items-center px-4 py-2 text-sm font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
@@ -177,6 +287,114 @@ export function AIAssistantPanel({
             </span>
           </div>
         </div>
+        */}
+
+        {/* Active Order Session */}
+        {sessionLoading ? (
+          <div className="p-4 border-b border-border-subtle">
+            <div className="animate-pulse">
+              <div className="h-4 bg-gray-300 rounded mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+            </div>
+          </div>
+        ) : activeSession ? (
+          <div className="p-4 border-b border-border-subtle">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <Package className="w-4 h-4 text-blue-600" />
+                  <h5 className="text-sm font-medium text-blue-900">
+                    Active Order Session
+                  </h5>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full ${
+                  activeSession.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                  activeSession.status === 'COLLECTING' ? 'bg-blue-100 text-blue-800' :
+                  activeSession.status === 'REVIEWING' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {activeSession.status}
+                </span>
+              </div>
+              
+              <div className="text-xs text-blue-700 mb-3 space-y-1">
+                <div className="flex justify-between">
+                  <span>Messages:</span>
+                  <span className="font-medium">{activeSession.total_messages_count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Started:</span>
+                  <span className="font-medium">
+                    {new Date(activeSession.started_at).toLocaleTimeString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Confidence:</span>
+                  <span className={`font-medium ${
+                    activeSession.confidence_score >= 0.8 ? 'text-green-600' :
+                    activeSession.confidence_score >= 0.6 ? 'text-yellow-600' :
+                    'text-red-600'
+                  }`}>
+                    {Math.round(activeSession.confidence_score * 100)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Session Items */}
+              {activeSession.items && activeSession.items.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-xs text-blue-800 font-medium mb-2">
+                    Collected Items ({activeSession.items.length}):
+                  </div>
+                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                    {activeSession.items.map((item) => (
+                      <div key={item.id} className="bg-white rounded px-2 py-1 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium text-gray-900">
+                            {item.quantity} {item.product_unit} {item.product_name}
+                          </span>
+                          <span className={`text-xs ${
+                            item.ai_confidence >= 0.8 ? 'text-green-600' :
+                            item.ai_confidence >= 0.6 ? 'text-yellow-600' :
+                            'text-red-600'
+                          }`}>
+                            {Math.round(item.ai_confidence * 100)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Session Actions */}
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleCloseSession}
+                  disabled={isProcessing || activeSession.status === 'REVIEWING'}
+                  className="flex-1 text-xs bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-1"
+                >
+                  <CheckCircle className="w-3 h-3" />
+                  <span>Complete Order</span>
+                </button>
+                <button
+                  onClick={handleCancelSession}
+                  disabled={isProcessing}
+                  className="text-xs border border-blue-300 text-blue-700 px-3 py-2 rounded hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                >
+                  <AlertCircle className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Expiry Warning */}
+              {new Date(activeSession.expires_at) <= new Date(Date.now() + 5 * 60 * 1000) && (
+                <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  ⚠️ Session expires in {Math.round((new Date(activeSession.expires_at).getTime() - Date.now()) / 60000)} minutes
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {/* Customer Insights */}
         <div className="p-4 border-b border-border-subtle">
@@ -285,7 +503,8 @@ export function AIAssistantPanel({
           </div>
         )}
 
-        {/* AI Suggestions */}
+        {/* AI Suggestions - Hidden for now */}
+        {/*
         <div className="p-4 border-b border-border-subtle">
           <h4 className="text-sm font-medium text-text-default mb-3 flex items-center">
             <Bot className="w-4 h-4 mr-2" />
@@ -321,6 +540,7 @@ export function AIAssistantPanel({
             </button>
           </div>
         </div>
+        */}
 
         {/* Quick Actions */}
         <div className="p-4">

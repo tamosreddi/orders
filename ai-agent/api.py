@@ -18,13 +18,13 @@ from pydantic import BaseModel, Field
 
 from config.settings import settings
 from services.database import DatabaseService, get_current_distributor_id
-from agents.order_agent import create_streamlined_order_agent_processor, StreamlinedOrderProcessor
+from agents.agent_factory import create_agent_factory, AgentFactory
 
 logger = logging.getLogger(__name__)
 
 # Global variables for initialized components
 database_service: Optional[DatabaseService] = None
-order_agent_processor: Optional[StreamlinedOrderProcessor] = None
+agent_factory: Optional[AgentFactory] = None
 
 
 class MessageProcessingRequest(BaseModel):
@@ -64,9 +64,9 @@ class HealthResponse(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan manager for initialization and cleanup."""
-    global database_service, order_agent_processor
+    global database_service, agent_factory
     
-    logger.info("🚀 Starting Order Agent API...")
+    logger.info("🚀 Starting Order Agent API with Autonomous Capabilities...")
     
     try:
         # Initialize database service
@@ -77,15 +77,23 @@ async def lifespan(app: FastAPI):
         distributor_id = get_current_distributor_id()
         logger.info(f"🏢 Using distributor ID: {distributor_id}")
         
-        # Create streamlined order agent processor (no complex product matching)
-        order_agent_processor = create_streamlined_order_agent_processor(
+        # Create agent factory for intelligent agent selection
+        agent_factory = create_agent_factory(
             database_service,
             distributor_id
         )
         
-        logger.info("🤖 Streamlined Order Agent processor initialized successfully")
+        logger.info("🤖 Agent Factory initialized - will select best agent per request")
         
-        logger.info("🤖 Order Agent processor initialized successfully")
+        # Log agent factory health status
+        health_status = await agent_factory.get_agent_health_status()
+        logger.info(f"🔍 Agent Factory Status: {health_status['factory_status']}")
+        
+        # Handle both old and new configuration structures
+        if 'configuration' in health_status:
+            logger.info(f"🔍 Simplified Agent Enabled: {health_status['configuration']['simplified_agent_enabled']}")
+        elif 'feature_flags' in health_status:
+            logger.info(f"🔍 Autonomous Agent Enabled: {health_status['feature_flags']['autonomous_enabled']}")
         
     except Exception as e:
         logger.error(f"❌ Failed to initialize Order Agent API: {e}")
@@ -121,9 +129,17 @@ async def health_check():
     
     components = {
         "database": "ok" if database_service else "not_initialized",
-        "order_agent": "ok" if order_agent_processor else "not_initialized",
+        "agent_factory": "ok" if agent_factory else "not_initialized",
         "settings": "ok" if settings else "error"
     }
+    
+    # Add agent factory health details if available
+    if agent_factory:
+        try:
+            factory_health = await agent_factory.get_agent_health_status()
+            components["autonomous_agent"] = "enabled" if factory_health['feature_flags']['autonomous_enabled'] else "disabled"
+        except:
+            components["autonomous_agent"] = "error"
     
     all_healthy = all(status == "ok" for status in components.values())
     
@@ -149,11 +165,11 @@ async def process_message(
     
     logger.info(f"📨 Processing message request: {request.message_id}")
     
-    if not order_agent_processor:
-        logger.error("❌ Order agent processor not initialized")
+    if not agent_factory:
+        logger.error("❌ Agent factory not initialized")
         raise HTTPException(
             status_code=503, 
-            detail="Order agent not initialized - check service health"
+            detail="Agent factory not initialized - check service health"
         )
     
     try:
@@ -171,14 +187,10 @@ async def process_message(
         
         logger.info(f"🤖 Starting AI processing for message: {request.message_id}")
         
-        # Check if processor is initialized
-        if order_agent_processor is None:
-            raise HTTPException(status_code=500, detail="Order agent processor not initialized")
+        # Process message using the best available agent via factory
+        result = await agent_factory.process_message_with_best_agent(message_data)
         
-        # Process message through the 6-step workflow
-        analysis = await order_agent_processor.process_message(message_data)
-        
-        if not analysis:
+        if not result:
             logger.error(f"❌ Failed to process message: {request.message_id}")
             return MessageProcessingResponse(
                 success=False,
@@ -192,28 +204,50 @@ async def process_message(
                 error_message="AI processing failed - check logs for details"
             )
         
-        # Extract processing results
+        # Handle different result types based on agent used
         order_created = False
         order_id = None
+        intent = None
+        confidence = None
+        products_extracted = 0
+        processing_time_ms = 0
         
-        # Check if order was created (high confidence BUY intent with products)
-        if (analysis.intent.intent == "BUY" and 
-            analysis.extracted_products and 
-            analysis.is_high_confidence):
-            order_created = True
-            # Note: order_id would be returned from the processing if implemented
+        # Check result type - could be SessionAnalysis or AutonomousResult
+        if hasattr(result, 'execution_status'):  # AutonomousResult
+            # Autonomous agent result
+            logger.info(f"📊 Processed by Autonomous Agent")
+            order_created = result.action_taken and result.action_taken.action_type == "create_order"
+            if result.action_taken and hasattr(result.action_taken, 'result'):
+                order_id = result.action_taken.result.get('order_id')
+            processing_time_ms = result.processing_time_ms
+            # Extract intent/confidence from decision if available
+            if result.decision:
+                intent = "BUY" if order_created else "UNKNOWN"
+                confidence = result.decision.confidence if hasattr(result.decision, 'confidence') else 0.9
+        elif hasattr(result, 'intent'):  # SessionAnalysis from streamlined agent
+            # Streamlined agent result
+            logger.info(f"📊 Processed by Streamlined Agent")
+            intent = result.intent.intent
+            confidence = result.intent.confidence
+            products_extracted = len(result.extracted_products) if result.extracted_products else 0
+            processing_time_ms = result.processing_time_ms
+            # Check if order was created
+            if (result.intent.intent == "BUY" and 
+                result.extracted_products and 
+                result.is_high_confidence):
+                order_created = True
         
         logger.info(f"✅ Message processed successfully: {request.message_id}")
         
         return MessageProcessingResponse(
             success=True,
             message_id=request.message_id,
-            intent=analysis.intent.intent,
-            confidence=analysis.intent.confidence,
-            products_extracted=len(analysis.extracted_products),
+            intent=intent,
+            confidence=confidence,
+            products_extracted=products_extracted,
             order_created=order_created,
             order_id=order_id,
-            processing_time_ms=analysis.processing_time_ms,
+            processing_time_ms=processing_time_ms,
             error_message=None
         )
         
@@ -247,10 +281,10 @@ async def process_message_background(
     
     logger.info(f"📨 Queuing background processing for message: {request.message_id}")
     
-    if not order_agent_processor:
+    if not agent_factory:
         raise HTTPException(
             status_code=503, 
-            detail="Order agent not initialized"
+            detail="Agent factory not initialized"
         )
     
     # Add to background tasks
@@ -275,7 +309,7 @@ async def process_message_in_background(request: MessageProcessingRequest):
         # Use provided distributor_id or detect from environment
         distributor_id = request.distributor_id or get_current_distributor_id()
         
-        # Create message object for processing
+        # Create message object for processing (message already stored by webhook)
         message_data = {
             'id': request.message_id,
             'content': request.content,
@@ -284,20 +318,23 @@ async def process_message_in_background(request: MessageProcessingRequest):
             'channel': request.channel
         }
         
-        # Process message through AI workflow
-        if order_agent_processor is None:
-            raise HTTPException(status_code=500, detail="Order agent processor not initialized")
+        # Process message using agent factory
+        result = await agent_factory.process_message_with_best_agent(message_data)
         
-        analysis = await order_agent_processor.process_message(message_data)
-        
-        if analysis:
-            intent = analysis.intent.intent
-            confidence = analysis.intent.confidence
-            products = len(analysis.extracted_products)
-            logger.info(
-                f"✅ Background processing complete: {request.message_id} "
-                f"(intent: {intent}, confidence: {confidence:.2f}, products: {products})"
-            )
+        if result:
+            # Log success based on result type
+            if hasattr(result, 'execution_status'):  # Autonomous agent result
+                logger.info(
+                    f"✅ Background processing complete (Autonomous): {request.message_id} "
+                    f"(status: {result.execution_status}, time: {result.processing_time_ms}ms)"
+                )
+            elif hasattr(result, 'intent'):  # Streamlined agent result
+                logger.info(
+                    f"✅ Background processing complete (Streamlined): {request.message_id} "
+                    f"(intent: {result.intent.intent}, confidence: {result.intent.confidence:.2f})"
+                )
+            else:
+                logger.info(f"✅ Background processing complete: {request.message_id}")
         else:
             logger.error(f"❌ Background processing failed: {request.message_id}")
             
