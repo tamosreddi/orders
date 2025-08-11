@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@babel/core": "^7.28.0",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.52.0",
     "@tanstack/react-table": "^8.20.5",
     "autoprefixer": "^10.4.21",
@@ -22,6 +23,7 @@
     "react": "^18",
     "react-datepicker": "^8.4.0",
     "react-dom": "^18",
+    "resend": "^6.0.1",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "twilio": "^5.8.0"

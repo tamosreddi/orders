@@ -1,7 +1,36 @@
+'use client';
+
 import Image from 'next/image';
-import Link from 'next/link';
+import { useState } from 'react';
 
 export default function Hero() {
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/demo-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setSubmitted(true);
+        setEmail('');
+      }
+    } catch (error) {
+      console.error('Error submitting demo request:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <section className="bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center lg:pt-32">
@@ -14,20 +43,39 @@ export default function Hero() {
             <span className="block">Order Processing</span>
           </h1>
           <p className="mt-6 text-xl leading-8 text-gray-600 max-w-2xl mx-auto font-light">
-            Automate manual work and focus on growing your business.
+            Automate manual work for Sales Teams so they can focus on growing your business.
           </p>
-          <div className="mt-10 flex items-center justify-center gap-x-6">
-            <Link
-              href="#book-demo"
-              className="rounded-md bg-green-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
-            >
-              Book a Demo
-            </Link>
-            <Link href="#how-it-works" className="text-base font-semibold leading-6 text-gray-900 flex items-center">
-              See how it works
-              <span aria-hidden="true" className="ml-2">→</span>
-            </Link>
+          
+          {/* Email Capture Form */}
+          <div className="mt-10 max-w-lg mx-auto">
+            {submitted ? (
+              <div className="rounded-md bg-green-50 p-4">
+                <p className="text-sm font-medium text-green-800">
+                  Thanks! We'll be in touch soon to schedule your demo.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
+                <input
+                  id="demo-email-input"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="flex-1 min-w-0 sm:min-w-[280px] rounded-md border border-gray-300 px-4 py-3 text-base placeholder-gray-500 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-md bg-green-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Submitting...' : 'Schedule a Demo'}
+                </button>
+              </form>
+            )}
           </div>
+
           <p className="mt-10 text-base text-gray-600">
             The simplest way to get orders into your ERP or CRM.
           </p>

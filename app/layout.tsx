@@ -14,6 +14,10 @@ const plusJakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: 'Reddi - AI Order Processing for Food Distributors',
   description: 'Automate order processing with AI agents. Save time and grow your food distribution business.',
+  icons: {
+    icon: '/logos/yellow-cohete.png',
+    apple: '/logos/yellow-cohete.png',
+  },
 };
 
 export default function RootLayout({
