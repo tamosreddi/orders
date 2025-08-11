@@ -51,7 +51,7 @@ export default function Hero() {
             {submitted ? (
               <div className="rounded-md bg-green-50 p-4">
                 <p className="text-sm font-medium text-green-800">
-                  Thanks! We'll be in touch soon to schedule your demo.
+                  Thanks! We&apos;ll be in touch soon to schedule your demo.
                 </p>
               </div>
             ) : (

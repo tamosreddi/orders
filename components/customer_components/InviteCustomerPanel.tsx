@@ -616,7 +616,7 @@ export function InviteCustomerPanel({
                       <div>
                         <label className="flex items-center text-caption text-text-muted mb-2">
                           <Mail className="h-4 w-4 mr-2" />
-                          Dirección de Correo"
+                          Dirección de Correo
                         </label>
                         <div className="flex items-center space-x-2">
                           <input

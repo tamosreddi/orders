@@ -15,7 +15,7 @@ export default function ProductsPage() {
           />
         </div>
         <h1 className="text-4xl font-light text-gray-900 mb-4">Coming Soon</h1>
-        <p className="text-lg text-gray-600 mb-8">We're working on something exciting!</p>
+        <p className="text-lg text-gray-600 mb-8">We&apos;re working on something exciting!</p>
         <Link
           href="/"
           className="inline-flex items-center text-green-600 hover:text-green-700 font-medium transition-colors"

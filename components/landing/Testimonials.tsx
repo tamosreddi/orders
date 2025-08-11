@@ -24,7 +24,7 @@ export default function Testimonials() {
             <div key={index} className="bg-white rounded-lg p-8 shadow-sm">
               <blockquote>
                 <p className="text-lg text-gray-600 italic">
-                  "{testimonial.quote}"
+                  &ldquo;{testimonial.quote}&rdquo;
                 </p>
                 <footer className="mt-4">
                   <p className="text-base font-semibold text-gray-900">

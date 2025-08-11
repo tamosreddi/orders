@@ -26,7 +26,7 @@ export default function WhyReddi() {
           </h2>
           <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto font-light">
             Food distribution is complex. Orders arrive in multiple formats and your sales reps spend over 60% of their time on manual work. 
-            Reddi's AI agents eliminate repetitive tasks so your team can focus on growth.
+            Reddi&apos;s AI agents eliminate repetitive tasks so your team can focus on growth.
           </p>
         </div>
         
