@@ -33,7 +33,7 @@ export default function Hero() {
 
   return (
     <section className="bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 text-center lg:pt-32">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16 text-center lg:pt-32">
         <div className="mx-auto max-w-4xl">
           <p className="text-sm font-bold leading-7 text-green-600 tracking-wide uppercase">
             Built for Food Distributors
