@@ -219,6 +219,18 @@ async def update_message_ai_data(
             'updated_at': datetime.now().isoformat()
         }
         
+        # CRITICAL: If this is a continuation message, link it using explicit columns
+        if analysis.is_continuation and analysis.continuation_order_id:
+            update_data['is_continuation'] = True
+            update_data['parent_order_id'] = analysis.continuation_order_id
+            # Set continuation sequence based on existing messages for this order
+            continuation_sequence = await _get_next_continuation_sequence(db, analysis.continuation_order_id)
+            update_data['continuation_sequence'] = continuation_sequence
+            logger.info(f"🔗 Linking message {message_id} to order {analysis.continuation_order_id} (continuation #{continuation_sequence})")
+        else:
+            # Explicitly mark as non-continuation for clarity
+            update_data['is_continuation'] = False
+        
         logger.debug(f"Update data for message {message_id}: {update_data}")
         
         # Update message by ID only (no distributor_id needed - message IDs are unique)
@@ -232,8 +244,11 @@ async def update_message_ai_data(
         success = result is not None
         if success:
             logger.info(f"✅ Updated message {message_id} with AI analysis (confidence: {analysis.intent.confidence:.2f})")
+            if analysis.is_continuation and analysis.continuation_order_id:
+                continuation_seq = update_data.get('continuation_sequence', '?')
+                logger.info(f"   🔗 Linked to order {analysis.continuation_order_id} (continuation #{continuation_seq})")
             if products_json:
-                logger.info(f"   Products saved: {[p.get('product_name') for p in products_json]}")
+                logger.info(f"   📦 Products saved: {[p.get('product_name') for p in products_json]}")
         else:
             logger.error(f"❌ Failed to update message {message_id} - no rows affected. Check if message exists in database.")
             
@@ -662,30 +677,44 @@ async def _populate_catalog_prices(
             logger.warning("No catalog data found for matched products")
             return
         
-        # Create lookup map: product_id -> catalog_price
-        price_lookup = {}
+        # Create lookup map: product_id -> (catalog_price, unit)
+        catalog_lookup = {}
         for catalog_item in catalog_data:
             product_id = catalog_item['id']
             unit_price = catalog_item.get('unit_price')
-            if unit_price is not None:
-                price_lookup[product_id] = Decimal(str(unit_price))
-                logger.debug(f"Found catalog price for {product_id}: ${unit_price}")
+            unit = catalog_item.get('unit', 'unidad')  # Default to 'unidad' if not specified
+            
+            catalog_lookup[product_id] = {
+                'price': Decimal(str(unit_price)) if unit_price is not None else None,
+                'unit': unit
+            }
+            logger.debug(f"Found catalog data for {product_id}: ${unit_price}, unit={unit}")
         
-        # Update products with catalog prices
+        # Update products with catalog prices and units
         updated_count = 0
         for product in products_needing_prices:
-            if product.matched_product_id in price_lookup:
-                catalog_price = price_lookup[product.matched_product_id]
+            if product.matched_product_id in catalog_lookup:
+                catalog_data_item = catalog_lookup[product.matched_product_id]
+                catalog_price = catalog_data_item['price']
+                catalog_unit = catalog_data_item['unit']
                 
-                # Set unit_price from catalog
-                product.unit_price = catalog_price
+                if catalog_price is not None:
+                    # Set unit_price from catalog
+                    product.unit_price = catalog_price
+                    
+                    # Calculate line_price = quantity × unit_price
+                    product.line_price = catalog_price * product.quantity
                 
-                # Calculate line_price = quantity × unit_price
-                product.line_price = catalog_price * product.quantity
+                # Always set unit from catalog if available
+                if catalog_unit:
+                    product.unit = catalog_unit
+                elif not product.unit:  # If no unit provided and no catalog unit
+                    product.unit = 'unidad'  # Default to 'unidad' (Spanish for unit)
                 
-                logger.info(f"✅ Updated prices for '{product.product_name}': "
+                logger.info(f"✅ Updated data for '{product.product_name}': "
                            f"unit_price=${catalog_price}, "
-                           f"line_price=${product.line_price} "
+                           f"line_price=${product.line_price}, "
+                           f"unit={product.unit} "
                            f"(qty={product.quantity})")
                 updated_count += 1
         
@@ -694,3 +723,314 @@ async def _populate_catalog_prices(
     except Exception as e:
         logger.error(f"Failed to populate catalog prices: {e}")
         # Don't raise - allow order creation to continue with 0.00 prices
+
+
+async def add_products_to_order(
+    database: DatabaseService,
+    order_id: str, 
+    products: List[Dict[str, Any]],
+    distributor_id: str
+) -> bool:
+    """
+    Add products to an existing PENDING order.
+    
+    Args:
+        database: Database service instance
+        order_id: ID of the existing order
+        products: List of product dictionaries to add
+        distributor_id: Distributor ID for multi-tenancy
+        
+    Returns:
+        True if products were added successfully
+    """
+    try:
+        # First, verify the order exists and is PENDING
+        order_result = await database.execute_query(
+            table='orders',
+            operation='select',
+            filters={'id': order_id, 'status': 'PENDING'},
+            distributor_id=distributor_id
+        )
+        
+        if not order_result:
+            logger.error(f"Order {order_id} not found or not PENDING")
+            return False
+        
+        order = order_result[0]
+        logger.info(f"Adding {len(products)} products to order {order.get('order_number', order_id)}")
+        
+        # Convert product dictionaries to OrderProductDatabaseInsert objects
+        order_products = []
+        total_addition = Decimal('0.00')
+        
+        for product_data in products:
+            # Create OrderProduct for pricing population
+            order_product = OrderProduct(
+                product_name=product_data['product_name'],
+                quantity=product_data['quantity'],
+                unit=product_data.get('unit', ''),  # Empty string instead of 'units' to force catalog lookup
+                unit_price=Decimal('0.00'),  # Will be populated
+                line_price=Decimal('0.00'),  # Will be calculated
+                ai_confidence=product_data.get('ai_confidence', 0.0),
+                original_text=product_data.get('original_text', ''),
+                matched_product_id=product_data.get('matched_product_id'),
+                matching_confidence=product_data.get('matching_confidence', 0.0)
+            )
+            
+            # Populate catalog price
+            await _populate_catalog_prices(database, [order_product], distributor_id)
+            
+            # Create database insert object
+            order_product_insert = OrderProductDatabaseInsert(
+                order_id=order_id,
+                product_name=order_product.product_name,
+                quantity=float(order_product.quantity),
+                product_unit=order_product.unit,  # FIXED: Use 'product_unit' not 'unit'
+                unit_price=float(order_product.unit_price),
+                line_price=float(order_product.line_price),
+                ai_extracted=True,
+                ai_confidence=order_product.ai_confidence,
+                ai_original_text=order_product.original_text,
+                matched_product_id=order_product.matched_product_id,
+                matching_confidence=order_product.matching_confidence,
+                source_message_id=product_data.get('source_message_id')
+            )
+            
+            # Log the unit being used
+            logger.debug(f"Product '{order_product.product_name}' will be added with unit: '{order_product.unit}'")
+            
+            order_products.append(order_product_insert)
+            total_addition += order_product.line_price
+        
+        # Insert products into order_products table
+        for order_product in order_products:
+            # Convert Decimal fields to float for JSON serialization
+            product_data = order_product.model_dump()
+            if product_data.get('unit_price') is not None:
+                product_data['unit_price'] = float(product_data['unit_price'])
+            if product_data.get('line_price') is not None:
+                product_data['line_price'] = float(product_data['line_price'])
+            
+            # Remove distributor_id from product data - order_products table doesn't have this column
+            product_data.pop('distributor_id', None)
+            
+            product_result = await database.execute_query(
+                table='order_products',
+                operation='insert',
+                data=product_data,
+                distributor_id=None  # order_products table doesn't have distributor_id column
+            )
+            if not product_result:
+                logger.error(f"Failed to insert product: {order_product.product_name}")
+                return False
+        
+        # Update order total amount
+        current_total = Decimal(str(order.get('total_amount', 0.0)))
+        new_total = current_total + total_addition
+        
+        update_result = await database.execute_query(
+            table='orders',
+            operation='update',
+            filters={'id': order_id},
+            data={
+                'total_amount': float(new_total),
+                'updated_at': datetime.now().isoformat()
+            },
+            distributor_id=distributor_id
+        )
+        
+        if not update_result:
+            logger.error(f"Failed to update order total for order {order_id}")
+            return False
+        
+        logger.info(f"✅ Successfully added {len(products)} products to order {order.get('order_number', order_id)} "
+                   f"(added ${total_addition}, new total: ${new_total})")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to add products to order {order_id}: {e}")
+        return False
+
+
+async def _get_next_continuation_sequence(
+    db: DatabaseService,
+    parent_order_id: str
+) -> int:
+    """
+    Get the next continuation sequence number for a given order.
+    
+    Looks up existing continuation messages for the order and returns the next sequence number.
+    
+    Args:
+        db: Database service instance
+        parent_order_id: UUID of the parent order
+        
+    Returns:
+        int: Next sequence number (1 for first continuation, 2 for second, etc.)
+    """
+    try:
+        logger.debug(f"Getting next continuation sequence for order {parent_order_id}")
+        
+        # Query existing continuation messages for this order
+        messages = await db.execute_query(
+            table='messages',
+            operation='select',
+            filters={
+                'parent_order_id': parent_order_id,
+                'is_continuation': True
+            },
+            distributor_id=None  # messages table doesn't have distributor_id column
+        )
+        
+        if not messages:
+            # This is the first continuation message
+            logger.debug(f"First continuation message for order {parent_order_id}")
+            return 1
+        
+        # Find the maximum continuation sequence and increment
+        max_sequence = 0
+        for message in messages:
+            sequence = message.get('continuation_sequence', 0) or 0
+            max_sequence = max(max_sequence, sequence)
+        
+        next_sequence = max_sequence + 1
+        logger.debug(f"Found {len(messages)} existing continuation messages, next sequence: {next_sequence}")
+        return next_sequence
+        
+    except Exception as e:
+        logger.error(f"Failed to get next continuation sequence: {e}")
+        # Return 1 as fallback to ensure continuation tracking still works
+        return 1
+
+
+async def get_continuation_messages_for_order(
+    db: DatabaseService,
+    order_id: str,
+    distributor_id: str
+) -> List[Dict[str, Any]]:
+    """
+    Get all continuation messages for a specific order, ordered chronologically.
+    
+    This is a helper function for analytics and debugging to see the full continuation flow.
+    
+    Args:
+        db: Database service instance
+        order_id: UUID of the parent order
+        distributor_id: Distributor ID (for logging, security enforced by RLS)
+        
+    Returns:
+        List[Dict[str, Any]]: Continuation messages ordered by sequence
+    """
+    try:
+        logger.debug(f"Getting continuation messages for order {order_id}")
+        
+        # Get all continuation messages for this order
+        messages = await db.execute_query(
+            table='messages',
+            operation='select',
+            filters={
+                'parent_order_id': order_id,
+                'is_continuation': True
+            },
+            distributor_id=None  # messages table doesn't have distributor_id column
+        )
+        
+        if messages:
+            # Sort by continuation sequence
+            messages.sort(key=lambda x: x.get('continuation_sequence', 0) or 0)
+            logger.info(f"Found {len(messages)} continuation messages for order {order_id}")
+        else:
+            logger.debug(f"No continuation messages found for order {order_id}")
+            messages = []
+            
+        return messages
+        
+    except Exception as e:
+        logger.error(f"Failed to get continuation messages for order {order_id}: {e}")
+        return []
+
+
+async def get_order_analytics_summary(
+    db: DatabaseService,
+    distributor_id: str,
+    days: int = 30
+) -> Dict[str, Any]:
+    """
+    Get analytics summary including continuation message patterns.
+    
+    Provides insights into multi-message order collection patterns for the distributor.
+    
+    Args:
+        db: Database service instance
+        distributor_id: Distributor ID for multi-tenant filtering
+        days: Number of days to analyze (default: 30)
+        
+    Returns:
+        Dict[str, Any]: Analytics summary with continuation patterns
+    """
+    try:
+        logger.info(f"Generating order analytics for distributor {distributor_id} ({days} days)")
+        
+        # Get orders from the specified time period
+        # Note: This is a simplified implementation - in production you'd want proper date filtering
+        orders = await db.execute_query(
+            table='orders',
+            operation='select',
+            filters={},  # In practice, add date filtering here
+            distributor_id=distributor_id
+        )
+        
+        if not orders:
+            logger.warning(f"No orders found for analytics")
+            return {
+                'total_orders': 0,
+                'orders_with_continuations': 0,
+                'avg_continuations_per_order': 0,
+                'continuation_patterns': {}
+            }
+        
+        # Analyze continuation patterns
+        orders_with_continuations = 0
+        total_continuations = 0
+        sequence_counts = {}
+        
+        for order in orders:
+            order_id = order['id']
+            
+            # Get continuation messages for this order
+            continuation_messages = await get_continuation_messages_for_order(
+                db, order_id, distributor_id
+            )
+            
+            if continuation_messages:
+                orders_with_continuations += 1
+                total_continuations += len(continuation_messages)
+                
+                # Track sequence patterns
+                max_sequence = max([msg.get('continuation_sequence', 0) or 0 for msg in continuation_messages])
+                sequence_counts[max_sequence] = sequence_counts.get(max_sequence, 0) + 1
+        
+        avg_continuations = total_continuations / len(orders) if orders else 0
+        
+        analytics = {
+            'total_orders': len(orders),
+            'orders_with_continuations': orders_with_continuations,
+            'continuation_percentage': (orders_with_continuations / len(orders) * 100) if orders else 0,
+            'total_continuation_messages': total_continuations,
+            'avg_continuations_per_order': round(avg_continuations, 2),
+            'continuation_sequence_patterns': sequence_counts,
+            'analysis_period_days': days
+        }
+        
+        logger.info(f"Analytics complete: {orders_with_continuations}/{len(orders)} orders had continuations")
+        return analytics
+        
+    except Exception as e:
+        logger.error(f"Failed to generate order analytics: {e}")
+        return {
+            'error': str(e),
+            'total_orders': 0,
+            'orders_with_continuations': 0,
+            'avg_continuations_per_order': 0
+        }

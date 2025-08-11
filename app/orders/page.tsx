@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Order, FilterState } from '../../types/order';
-import { OrderError } from '../../lib/api/orders';
+import { OrderError, consolidateOrders } from '../../lib/api/orders';
 import { RowSelectionState } from '@tanstack/react-table';
 import { useOrders } from './hooks/useOrders';
 
@@ -12,6 +12,7 @@ import { OrderTable } from '../../components/OrderTable';
 import { TabFilterBar } from '../../components/TabFilterBar';
 import { OrderActionButtons } from '../../components/OrderActionButtons';
 import { TablePagination } from '../../components/TablePagination';
+import { ConsolidationModal } from '../../components/ConsolidationModal';
 
 function OrdersContent() {
   const searchParams = useSearchParams();
@@ -38,6 +39,7 @@ function OrdersContent() {
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [isConsolidationModalOpen, setIsConsolidationModalOpen] = useState(false);
 
   // Show notification and auto-hide after 5 seconds
   const showNotification = (type: 'success' | 'error', message: string) => {
@@ -145,6 +147,49 @@ function OrdersContent() {
     }
   };
 
+  const handleConsolidate = (orderIds: string[]) => {
+    if (orderIds.length < 2) {
+      showNotification('error', 'Please select at least two orders to consolidate.');
+      return;
+    }
+    
+    // Check if all selected orders are from the same customer
+    const customerCodes = selectedOrders.map(order => order.customer.code);
+    const uniqueCustomers = new Set(customerCodes);
+    
+    if (uniqueCustomers.size > 1) {
+      showNotification('error', 'Esto no se puede hacer porque son clientes diferentes');
+      return;
+    }
+    
+    setIsConsolidationModalOpen(true);
+  };
+
+  const handleConsolidationConfirm = async (data: { receivedDate: string; deliveryDate: string }) => {
+    try {
+      const selectedOrderIds = selectedOrders.map(order => order.id);
+      const newOrderId = await consolidateOrders(selectedOrderIds, data);
+      
+      showNotification('success', `${selectedOrderIds.length} orders consolidated successfully!`);
+      setIsConsolidationModalOpen(false);
+      setRowSelection({});
+      
+      // Optional: Navigate to the new consolidated order
+      // router.push(`/orders/${newOrderId}/review`);
+    } catch (error) {
+      console.error('Failed to consolidate orders:', error);
+      if (error instanceof OrderError) {
+        showNotification('error', error.message);
+      } else {
+        showNotification('error', 'Failed to consolidate orders. Please try again.');
+      }
+    }
+  };
+
+  const handleConsolidationCancel = () => {
+    setIsConsolidationModalOpen(false);
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     setRowSelection({}); // Reset selection when changing pages
@@ -207,6 +252,7 @@ function OrdersContent() {
             onDelete={handleDelete}
             onUpload={handleUpload}
             onConfirm={handleConfirm}
+            onConsolidate={handleConsolidate}
           />
         </div>
 
@@ -228,6 +274,14 @@ function OrdersContent() {
             onPageSizeChange={handlePageSizeChange}
           />
         </div>
+
+        {/* Consolidation Modal */}
+        <ConsolidationModal
+          isOpen={isConsolidationModalOpen}
+          onClose={handleConsolidationCancel}
+          selectedOrders={selectedOrders}
+          onConfirm={handleConsolidationConfirm}
+        />
       </div>
     </div>
   );

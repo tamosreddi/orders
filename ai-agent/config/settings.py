@@ -31,6 +31,11 @@ class Settings(BaseModel):
     max_processing_time_seconds: int = Field(default=30, ge=1, le=300, description="Maximum time to process a single message")
     batch_size: int = Field(default=10, ge=1, le=100, description="Number of messages to process in one batch")
     
+    # AI Enhancement Configuration
+    ai_enhancement_enabled: bool = Field(default=True, description="Enable AI enhancement for uncertain product matches")
+    ai_enhancement_threshold: float = Field(default=0.85, ge=0.0, le=1.0, description="Confidence threshold below which AI enhancement is triggered")
+    ai_enhancement_model: str = Field(default="gpt-4o-mini", description="OpenAI model for product matching enhancement")
+    
     # Retry Configuration
     max_retries: int = Field(default=3, ge=1, le=10, description="Maximum retry attempts for failed operations")
     retry_delay_seconds: float = Field(default=1.0, ge=0.1, le=60.0, description="Base delay between retries")
@@ -82,6 +87,9 @@ def get_settings() -> Settings:
             ai_confidence_threshold=float(os.getenv('AI_CONFIDENCE_THRESHOLD', '0.8')),
             max_processing_time_seconds=int(os.getenv('MAX_PROCESSING_TIME_SECONDS', '30')),
             batch_size=int(os.getenv('BATCH_SIZE', '10')),
+            ai_enhancement_enabled=os.getenv('AI_ENHANCEMENT_ENABLED', 'true').lower() == 'true',
+            ai_enhancement_threshold=float(os.getenv('AI_ENHANCEMENT_THRESHOLD', '0.85')),
+            ai_enhancement_model=os.getenv('AI_ENHANCEMENT_MODEL', 'gpt-4o-mini'),
             max_retries=int(os.getenv('MAX_RETRIES', '3')),
             retry_delay_seconds=float(os.getenv('RETRY_DELAY_SECONDS', '1.0')),
             connection_pool_size=int(os.getenv('CONNECTION_POOL_SIZE', '5')),

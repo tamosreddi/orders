@@ -26,6 +26,7 @@ from pydantic_ai.models.openai import OpenAIModel
 from config.settings import settings
 from services.database import DatabaseService
 from services.product_matcher import ProductMatcher, ProductMatch, MatchResult
+from services.continuation_detector import ContinuationDetector, ContinuationResult
 from schemas.message import MessageAnalysis, MessageIntent, ExtractedProduct
 from schemas.order import OrderCreation, OrderProduct
 from tools.supabase_tools import (
@@ -41,17 +42,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class StreamlinedAgentDeps:
-    """Enhanced dependencies with intelligent product matching."""
+    """Enhanced dependencies with intelligent product matching and continuation detection."""
     database: DatabaseService
     distributor_id: str
     product_matcher: ProductMatcher
+    continuation_detector: ContinuationDetector
 
 
-# Enhanced system prompt for OpenAI with structured output
+# Enhanced system prompt for OpenAI with structured output and continuation detection
 SYSTEM_PROMPT = """
 You are an AI assistant for a B2B food distributor processing WhatsApp orders in Spanish and English.
 
-Your job is to analyze customer messages and extract order information.
+Your job is to analyze customer messages and extract order information, including detecting if this message continues a previous order.
 
 INTENT CLASSIFICATION:
 - BUY: Customer wants to purchase products (e.g., "quiero", "necesito", "dame")
@@ -60,14 +62,47 @@ INTENT CLASSIFICATION:
 - FOLLOW_UP: Customer referencing previous conversation
 - OTHER: General conversation or greetings
 
+CONTINUATION DETECTION:
+Detect if this message should be added to a recent PENDING order instead of creating a new order.
+Look for continuation signals:
+- Explicit: "también", "además", "y también", "ah y", "y quiero", "dame también"
+- Implicit: "y [product]", "ah [product]", "ponme [product]"
+- Context clues: Reference to previous items, adding to existing order
+
 PRODUCT EXTRACTION (for BUY intents):
-Extract all products with quantities and units. Return in this JSON format:
+Extract all products with quantities and units.
+
+DELIVERY DATE EXTRACTION:
+Look for delivery date requests in Spanish or English:
+- "mañana" → tomorrow's date (TODAY + 1 day)
+- "pasado mañana" → day after tomorrow (TODAY + 2 days)
+- "hoy" → today's date  
+- "el viernes" → the NEXT occurrence of Friday (if today is Friday, use next Friday)
+- "el lunes/martes/etc" → the NEXT occurrence of that weekday
+- "la próxima semana" → next Monday
+- "para el 15" → 15th of current month (or next month if date has passed)
+- "urgente" → today's date
+- No date mentioned → null
+
+CRITICAL: "mañana" ALWAYS means tomorrow (the day after today), never today!
+
+IMPORTANT: For weekdays like "el viernes", always choose the NEXT occurrence of that day.
+If today is Wednesday and they say "el viernes", that's this Friday (2 days from now).
+If today is Saturday and they say "el viernes", that's next Friday (6 days from now).
+
+Return dates in ISO format (YYYY-MM-DD). If no delivery date is mentioned, use null.
+
+Return in this JSON format:
 
 ```json
 {
   "intent": "BUY",
   "confidence": 0.85,
   "reasoning": "Customer expressing purchase intent",
+  "is_continuation": false,
+  "continuation_confidence": 0.95,
+  "continuation_reasoning": "No continuation signals detected",
+  "delivery_date": "2025-01-07",
   "products": [
     {
       "name": "aceite de canola",
@@ -79,14 +114,11 @@ Extract all products with quantities and units. Return in this JSON format:
 }
 ```
 
-SPANISH NUMBER EXAMPLES:
-- "un/una" = 1
-- "dos" = 2  
-- "tres" = 3
-- "media docena" = 6
-- "una docena" = 12
-
-IMPORTANT: Always extract the exact product name as mentioned by the customer.
+IMPORTANT: 
+- Always extract the exact product name as mentioned by the customer
+- Set is_continuation to true if this message should be added to a recent PENDING order
+- Use continuation_confidence (0.0-1.0) to indicate how certain you are about continuation detection
+- Provide clear reasoning for continuation decisions
 """
 
 # Initialize simple agent
@@ -102,20 +134,21 @@ class StreamlinedOrderProcessor:
     """
     Simplified order processor with linear 6-step workflow.
     
-    Designed for pilot testing - easy to debug, reliable processing.
     """
     
     def __init__(self, database: DatabaseService, distributor_id: str):
-        """Initialize the streamlined processor with intelligent product matching."""
+        """Initialize the streamlined processor with intelligent product matching and continuation detection."""
         self.database = database
         self.distributor_id = distributor_id
         self.product_matcher = ProductMatcher()
+        self.continuation_detector = ContinuationDetector()
         self.deps = StreamlinedAgentDeps(
             database=database,
             distributor_id=distributor_id,
-            product_matcher=self.product_matcher
+            product_matcher=self.product_matcher,
+            continuation_detector=self.continuation_detector
         )
-        logger.info(f"Initialized StreamlinedOrderProcessor with intelligent product matching for distributor {distributor_id}")
+        logger.info(f"Initialized StreamlinedOrderProcessor with intelligent product matching and continuation detection for distributor {distributor_id}")
     
     async def process_message(self, message_data: Dict[str, Any]) -> Optional[MessageAnalysis]:
         """
@@ -140,12 +173,12 @@ class StreamlinedOrderProcessor:
             context = await self._get_simple_context(conversation_id, customer_id)
             
             # STEP 2: Analyze message with OpenAI (intent + products)
-            analysis_result = await self._analyze_with_openai(content, context)
+            analysis_result = await self._analyze_with_openai(content, context, message_data)
             if not analysis_result:
                 logger.error(f"❌ Failed to analyze message {message_id}")
                 return None
             
-            intent, products = analysis_result
+            intent, products, delivery_date = analysis_result
             
             # STEP 3: Create MessageAnalysis object
             analysis = MessageAnalysis(
@@ -153,7 +186,7 @@ class StreamlinedOrderProcessor:
                 intent=intent,
                 extracted_products=products,
                 customer_notes=None,
-                delivery_date=None,
+                delivery_date=delivery_date,  # Extract delivery_date from OpenAI
                 processing_time_ms=0  # Will set at end
             )
             
@@ -166,24 +199,45 @@ class StreamlinedOrderProcessor:
                 analysis.requires_clarification = validation_result.get('requires_clarification', False)
                 analysis.suggested_question = validation_result.get('suggested_question')
             
-            # STEP 5: Create order if confident BUY intent OR send clarifying question
+            # STEP 5: Check for continuation and create/modify order if confident BUY intent
             if intent.intent == "BUY":
-                if analysis.requires_clarification and analysis.suggested_question:
-                    # Send clarifying question to customer
-                    await self._send_clarifying_question(
-                        message_data, analysis.suggested_question
-                    )
-                    logger.info(f"❓ Sent clarifying question for message {message_id}")
+                # DISABLED: Automatic clarifying questions to customers
+                # if analysis.requires_clarification and analysis.suggested_question:
+                #     # Send clarifying question to customer
+                #     await self._send_clarifying_question(
+                #         message_data, analysis.suggested_question
+                #     )
+                #     logger.info(f"❓ Sent clarifying question for message {message_id}")
                 
-                elif (analysis.extracted_products and 
+                if (analysis.extracted_products and 
                       intent.confidence >= settings.ai_confidence_threshold and
                       not analysis.requires_clarification):
-                    # High confidence - create order directly
-                    order_created = await self._create_simple_order(
-                        message_data, analysis
+                    
+                    # NEW: Check for continuation before creating order
+                    continuation_result = await self.continuation_detector.check_continuation(
+                        content, conversation_id, customer_id, 
+                        self.database, self.distributor_id, analysis.extracted_products
                     )
-                    if order_created:
-                        logger.info(f"✅ Created order from message {message_id}")
+                    
+                    if continuation_result.is_continuation and continuation_result.target_order_id:
+                        # Add to existing PENDING order
+                        order_modified = await self._add_to_existing_order(
+                            continuation_result.target_order_id, analysis.extracted_products, message_data
+                        )
+                        if order_modified:
+                            logger.info(f"✅ Added products to existing order {continuation_result.target_order_number} from message {message_id}")
+                            analysis.continuation_order_id = continuation_result.target_order_id
+                            analysis.is_continuation = True
+                        else:
+                            # Fallback to creating new order if continuation failed
+                            order_created = await self._create_simple_order(message_data, analysis)
+                            if order_created:
+                                logger.info(f"✅ Created new order (continuation failed) from message {message_id}")
+                    else:
+                        # Create new order (normal flow)
+                        order_created = await self._create_simple_order(message_data, analysis)
+                        if order_created:
+                            logger.info(f"✅ Created new order from message {message_id}")
                 
                 else:
                     logger.info(f"⚠️ BUY intent but insufficient confidence or no products matched for message {message_id}")
@@ -246,8 +300,8 @@ class StreamlinedOrderProcessor:
         return "\n".join(context_parts) if context_parts else "No previous context"
     
     async def _analyze_with_openai(
-        self, content: str, context: str
-    ) -> Optional[tuple[MessageIntent, List[ExtractedProduct]]]:
+        self, content: str, context: str, message_data: Dict[str, Any]
+    ) -> Optional[tuple[MessageIntent, List[ExtractedProduct], Optional[str]]]:
         """
         Analyze message with OpenAI to get intent and products using structured JSON output.
         
@@ -264,18 +318,57 @@ class StreamlinedOrderProcessor:
             except:
                 pass
             
+            # Get today's date for temporal context
+            from datetime import datetime, timedelta
+            import pytz
+            
+            # Get distributor's timezone (default to UTC if not set)
+            # TODO: Fetch actual timezone from distributor settings
+            # For now, use system local time which appears to be PDT
+            today_date = datetime.now()
+            today_str = today_date.strftime("%Y-%m-%d")
+            today_weekday = today_date.strftime("%A")  # Full weekday name in English
+            
+            # Calculate tomorrow for the example
+            tomorrow_str = (today_date + timedelta(days=1)).strftime("%Y-%m-%d")
+            
+            # Debug logging to verify dates
+            logger.info(f"📅 Date calculation - Today: {today_str} ({today_weekday}), Tomorrow: {tomorrow_str}")
+            
+            # Get recent PENDING orders for continuation context
+            continuation_context = ""
+            try:
+                recent_pending_orders = await self.continuation_detector._get_recent_pending_orders(
+                    message_data.get('customer_id', ''), self.database, self.distributor_id
+                )
+                if recent_pending_orders:
+                    continuation_context = f"\n\nRECENT PENDING ORDERS:\n{self.continuation_detector.get_continuation_context_for_ai(recent_pending_orders)}"
+            except:
+                pass
+            
             prompt = f"""
             Analyze this customer message and return a JSON response:
             
             MESSAGE: "{content}"
             
-            CONTEXT: {context}{catalog_context}
+            CONTEXT: {context}{catalog_context}{continuation_context}
+            
+            TODAY'S DATE: {today_str} ({today_weekday})
+            
+            IMPORTANT DATE CALCULATIONS:
+            - Today is {today_str}
+            - Tomorrow ("mañana") would be {tomorrow_str}
+            - Calculate all dates based on TODAY'S DATE above
             
             Return ONLY valid JSON in this exact format:
             {{
               "intent": "BUY",
               "confidence": 0.85,
               "reasoning": "Customer expressing purchase intent",
+              "is_continuation": false,
+              "continuation_confidence": 0.95,
+              "continuation_reasoning": "No continuation signals detected",
+              "delivery_date": "{tomorrow_str}",
               "products": [
                 {{
                   "name": "aceite de canola",
@@ -291,6 +384,9 @@ class StreamlinedOrderProcessor:
             - Extract the exact product name as mentioned
             - Include unit if mentioned (litro, botella, kilo, etc)
             - If no products for BUY intent, use empty products array
+            - Set is_continuation to true if this should be added to a recent PENDING order
+            - Use continuation_confidence (0.0-1.0) to indicate certainty about continuation
+            - Remember: "mañana" means {tomorrow_str}, NOT {today_str}!
             """
             
             result = await streamlined_agent.run(prompt, deps=self.deps)
@@ -313,6 +409,9 @@ class StreamlinedOrderProcessor:
                         reasoning=data.get('reasoning', 'AI analysis')
                     )
                     
+                    # Extract delivery date from JSON
+                    delivery_date = data.get('delivery_date')  # Will be None if not present or null
+                    
                     # Create products from JSON
                     products = []
                     if data.get('products'):
@@ -325,16 +424,25 @@ class StreamlinedOrderProcessor:
                                 confidence=float(p.get('confidence', intent.confidence))
                             ))
                     
-                    return intent, products
+                    logger.info(f"✅ OpenAI JSON parsing successful - extracted {len(products)} products, delivery_date: {delivery_date}")
+                    
+                    # Additional debug for date issues
+                    if delivery_date:
+                        logger.info(f"🗓️ Delivery date extracted: {delivery_date} (from message: '{content}')")
+                    
+                    return intent, products, delivery_date
                     
             except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(f"Failed to parse JSON response, falling back to simple parsing: {e}")
+                logger.warning(f"🔄 JSON parsing failed, falling back to simple parsing: {e}")
             
             # Fallback to simple parsing if JSON fails
+            logger.info("🛠️ Using fallback parsing methods (OpenAI JSON failed)")
             intent = self._parse_intent(response_text, content)
             products = self._parse_products_simple(content) if intent.intent == "BUY" else []
+            delivery_date = None  # Fallback doesn't extract delivery dates
+            logger.info(f"🛠️ Fallback parsing extracted {len(products)} products, delivery_date: {delivery_date}")
             
-            return intent, products
+            return intent, products, delivery_date
             
         except Exception as e:
             logger.error(f"OpenAI analysis failed: {e}")
@@ -408,7 +516,7 @@ class StreamlinedOrderProcessor:
                     quantity=quantity,
                     unit=unit,
                     original_text=content,
-                    confidence=0.7  # Lower confidence for simple parsing
+                    confidence=0.33  # FALLBACK FINGERPRINT - Lower confidence for simple parsing
                 ))
         
         return products
@@ -429,8 +537,8 @@ class StreamlinedOrderProcessor:
         if any(greeting in content_lower for greeting in greeting_words):
             return MessageIntent(
                 intent="OTHER",
-                confidence=0.75,
-                reasoning="Customer greeting or general conversation"
+                confidence=0.33,  # FALLBACK FINGERPRINT
+                reasoning="Customer greeting or general conversation [FALLBACK]"
             )
         
         # SECOND: Check for clear purchase intent  
@@ -438,8 +546,8 @@ class StreamlinedOrderProcessor:
         if any(word in content_lower for word in buy_words):
             return MessageIntent(
                 intent="BUY",
-                confidence=0.85,
-                reasoning="Customer expressing purchase intent"
+                confidence=0.33,  # FALLBACK FINGERPRINT
+                reasoning="Customer expressing purchase intent [FALLBACK]"
             )
         
         # THIRD: Check for questions about products/prices
@@ -447,8 +555,8 @@ class StreamlinedOrderProcessor:
         if any(word in content_lower for word in question_words) or content.endswith('?'):
             return MessageIntent(
                 intent="QUESTION", 
-                confidence=0.8,
-                reasoning="Customer asking about products/services"
+                confidence=0.33,  # FALLBACK FINGERPRINT
+                reasoning="Customer asking about products/services [FALLBACK]"
             )
         
         # FOURTH: Check for complaints
@@ -456,223 +564,16 @@ class StreamlinedOrderProcessor:
         if any(word in content_lower for word in complaint_words):
             return MessageIntent(
                 intent="COMPLAINT",
-                confidence=0.8, 
-                reasoning="Customer expressing dissatisfaction"
+                confidence=0.33,  # FALLBACK FINGERPRINT
+                reasoning="Customer expressing dissatisfaction [FALLBACK]"
             )
         
         # DEFAULT: General conversation
         return MessageIntent(
             intent="OTHER",
-            confidence=0.6,
-            reasoning="General conversation or unclear intent"
+            confidence=0.33,  # FALLBACK FINGERPRINT
+            reasoning="General conversation or unclear intent [FALLBACK]"
         )
-    
-    def _parse_products_complex_DEPRECATED(self, response: str, content: str) -> List[ExtractedProduct]:
-        """DEPRECATED: Complex Spanish product extraction - replaced by OpenAI-first approach."""
-        
-        products = []
-        
-        # Comprehensive product keywords based on our catalog
-        product_keywords = {
-            # Beverages
-            'agua embotellada': 'agua embotellada',
-            'agua': 'agua embotellada',
-            'water': 'agua embotellada',
-            'coca cola': 'coca cola',
-            'coca': 'coca cola',
-            'cola': 'coca cola',
-            'coke': 'coca cola',
-            'pepsi': 'pepsi',
-            'jugo de naranja': 'jugo de naranja',
-            'jugo naranja': 'jugo de naranja',
-            'zumo naranja': 'jugo de naranja', 
-            'orange juice': 'jugo de naranja',
-            'red bull': 'red bull',
-            'energética': 'red bull',
-            'energy drink': 'red bull',
-            'cerveza': 'cerveza corona',
-            'corona': 'cerveza corona',
-            'beer': 'cerveza corona',
-            'café molido': 'café molido',
-            'café': 'café molido',
-            'coffee': 'café molido',
-            
-            # Cooking & Oils
-            'aceite de canola': 'aceite de canola',
-            'aceite canola': 'aceite de canola',
-            'canola oil': 'aceite de canola',
-            'aceite de oliva': 'aceite de oliva',
-            'aceite oliva': 'aceite de oliva',
-            'olive oil': 'aceite de oliva',
-            'aceite extra virgen': 'aceite de oliva',
-            'aceite': 'aceite',  # Generic fallback
-            
-            # Dairy Products
-            'leche entera': 'leche entera',
-            'leche': 'leche entera',
-            'milk': 'leche entera',
-            'queso fresco': 'queso fresco',
-            'queso': 'queso fresco',
-            'cheese': 'queso fresco',
-            'yogurt natural': 'yogurt natural',
-            'yogurt': 'yogurt natural',
-            'mantequilla': 'mantequilla',
-            'butter': 'mantequilla',
-            'huevos': 'huevos',
-            'eggs': 'huevos',
-            
-            # Snacks
-            'papas fritas': 'papas fritas',
-            'papas': 'papas fritas',
-            'chips': 'papas fritas',
-            'frituras': 'papas fritas',
-            'galletas de chocolate': 'galletas de chocolate',
-            'galletas': 'galletas de chocolate',
-            'cookies': 'galletas de chocolate',
-            'nueces mixtas': 'nueces mixtas',
-            'nueces': 'nueces mixtas',
-            'nuts': 'nueces mixtas',
-            'crackers': 'crackers',
-            'galletas saladas': 'crackers',
-            
-            # Frozen Foods
-            'helado de vainilla': 'helado de vainilla',
-            'helado': 'helado de vainilla',
-            'ice cream': 'helado de vainilla',
-            'verduras congeladas': 'verduras congeladas',
-            'verduras': 'verduras congeladas',
-            'vegetables': 'verduras congeladas',
-            'pizza congelada': 'pizza congelada',
-            'pizza': 'pizza congelada',
-            'fresas congeladas': 'fresas congeladas',
-            'fresas': 'fresas congeladas',
-            'strawberries': 'fresas congeladas',
-            
-            # Bakery & Grains
-            'pan integral': 'pan integral',
-            'pan': 'pan integral',
-            'bread': 'pan integral',
-            'arroz blanco': 'arroz blanco',
-            'arroz': 'arroz blanco',
-            'rice': 'arroz blanco',
-            
-            # Canned & Others
-            'atún': 'atún',
-            'tuna': 'atún',
-            'frijoles negros': 'frijoles negros',
-            'frijoles': 'frijoles negros',
-            'beans': 'frijoles negros',
-            'detergente líquido': 'detergente líquido',
-            'detergente': 'detergente líquido',
-            'detergent': 'detergente líquido',
-            'azúcar': 'azúcar blanca',
-            'sugar': 'azúcar blanca'
-        }
-        
-        # Spanish number recognition
-        spanish_numbers = {
-            'un': 1, 'una': 1, 'uno': 1,
-            'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
-            'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
-            'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15,
-            'veinte': 20, 'treinta': 30, 'cuarenta': 40, 'cincuenta': 50
-        }
-        
-        # Spanish unit recognition
-        spanish_units = {
-            'litro': 'litro', 'litros': 'litro', 'l': 'litro',
-            'botella': 'botella', 'botellas': 'botella',
-            'lata': 'lata', 'latas': 'lata',
-            'paquete': 'paquete', 'paquetes': 'paquete',
-            'envase': 'envase', 'envases': 'envase',
-            'bolsa': 'bolsa', 'bolsas': 'bolsa',
-            'caja': 'caja', 'cajas': 'caja',
-            'barra': 'barra', 'barras': 'barra',
-            'docena': 'docena', 'docenas': 'docena',
-            'kilo': 'kg', 'kilos': 'kg', 'kg': 'kg', 'kilogramo': 'kg', 'kilogramos': 'kg',
-            'gramo': 'g', 'gramos': 'g', 'g': 'g',
-            'pieza': 'pieza', 'piezas': 'pieza', 'unidad': 'unidad', 'unidades': 'unidad'
-        }
-        
-        content_lower = content.lower()
-        words = content_lower.split()
-        
-        # Enhanced product matching with compound names
-        found_products = []
-        
-        # Sort keywords by length (longest first) to match compound names first
-        sorted_keywords = sorted(product_keywords.keys(), key=len, reverse=True)
-        
-        for keyword in sorted_keywords:
-            if keyword in content_lower:
-                # Avoid duplicate shorter matches within longer ones
-                overlaps = False
-                for found in found_products:
-                    if keyword in found['keyword'] or found['keyword'] in keyword:
-                        overlaps = True
-                        break
-                
-                if not overlaps:
-                    found_products.append({
-                        'keyword': keyword,
-                        'product_name': product_keywords[keyword],
-                        'start_pos': content_lower.find(keyword)
-                    })
-        
-        # Extract quantity and unit for each found product
-        for found in found_products:
-            keyword = found['keyword']
-            product_name = found['product_name']
-            start_pos = found['start_pos']
-            
-            # Find quantity and unit near the product
-            quantity = 1
-            unit = None
-            
-            # Look for quantity in the text around the product
-            keyword_words = keyword.split()
-            for i, word in enumerate(words):
-                if any(kw in word for kw in keyword_words):
-                    # Search for quantity in the 3 words before the product
-                    search_range = range(max(0, i-3), i)
-                    for j in search_range:
-                        search_word = words[j]
-                        
-                        # Check Spanish numbers
-                        if search_word in spanish_numbers:
-                            quantity = spanish_numbers[search_word]
-                            break
-                        
-                        # Check numeric digits
-                        try:
-                            potential_qty = int(search_word)
-                            if 1 <= potential_qty <= 100:  # Reasonable quantity range
-                                quantity = potential_qty
-                                break
-                        except ValueError:
-                            continue
-                    
-                    # Search for unit in the 2 words before and after the product
-                    unit_search_range = list(range(max(0, i-2), i)) + list(range(i+1, min(len(words), i+3)))
-                    for j in unit_search_range:
-                        search_word = words[j]
-                        if search_word in spanish_units:
-                            unit = spanish_units[search_word]
-                            break
-                    
-                    break
-            
-            # Create the extracted product
-            product = ExtractedProduct(
-                product_name=product_name,
-                quantity=quantity,
-                unit=unit,
-                original_text=content,
-                confidence=0.85  # Higher confidence for enhanced extraction
-            )
-            products.append(product)
-        
-        return products
     
     async def _intelligent_product_validation(
         self, products: List[ExtractedProduct], original_message: str, conversation_id: str
@@ -736,7 +637,7 @@ class StreamlinedOrderProcessor:
             # Process each extracted product with status-based workflow
             for extracted_product in products:
                 # Use our intelligent matcher to find matches
-                match_result = self.product_matcher.match_products(
+                match_result = await self.product_matcher.match_products(
                     extracted_product.product_name, 
                     catalog_dicts
                 )
@@ -895,7 +796,7 @@ class StreamlinedOrderProcessor:
                 conversation_id=message_data.get('conversation_id'),
                 channel=message_data.get('channel', 'WHATSAPP'),
                 products=order_products,
-                delivery_date=None,
+                delivery_date=analysis.delivery_date,  # Use extracted delivery date from analysis
                 additional_comment=None,
                 ai_confidence=analysis.intent.confidence,
                 source_message_ids=[message_data.get('id', '')]
@@ -906,6 +807,67 @@ class StreamlinedOrderProcessor:
             
         except Exception as e:
             logger.error(f"Failed to create order: {e}")
+            return False
+    
+    async def _add_to_existing_order(
+        self, target_order_id: str, products: List[ExtractedProduct], message_data: Dict[str, Any]
+    ) -> bool:
+        """
+        Add products to an existing PENDING order.
+        
+        Args:
+            target_order_id: ID of the existing order to modify
+            products: List of products to add
+            message_data: Original message data
+            
+        Returns:
+            True if products were added successfully
+        """
+        try:
+            # Filter for confirmed products only
+            confirmed_products = [p for p in products if p.status == "confirmed"]
+            
+            if not confirmed_products:
+                logger.info(f"No confirmed products to add to order {target_order_id}")
+                return False
+            
+            # Import the add_products_to_order function
+            from tools.supabase_tools import add_products_to_order
+            
+            # Convert ExtractedProduct to OrderProduct format
+            order_products = []
+            for extracted in confirmed_products:
+                # Log the unit status before sending
+                logger.debug(f"Product '{extracted.product_name}' has unit: '{extracted.unit}' (will lookup from catalog)")
+                
+                order_product = {
+                    'product_name': extracted.matched_product_name or extracted.product_name,
+                    'quantity': extracted.quantity,
+                    'unit': extracted.unit or '',  # Empty string to force catalog lookup
+                    'unit_price': None,  # Will be populated by pricing logic
+                    'line_price': None,  # Will be calculated
+                    'ai_confidence': extracted.confidence,
+                    'original_text': extracted.original_text,
+                    'matched_product_id': extracted.matched_product_id,
+                    'matching_confidence': extracted.confidence,
+                    'source_message_id': message_data.get('id', '')
+                }
+                order_products.append(order_product)
+            
+            # Add products to the existing order
+            success = await add_products_to_order(
+                self.database, target_order_id, order_products, self.distributor_id
+            )
+            
+            if success:
+                logger.info(f"Successfully added {len(confirmed_products)} products to order {target_order_id}")
+                return True
+            else:
+                logger.error(f"Failed to add products to order {target_order_id}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error adding products to existing order {target_order_id}: {e}")
             return False
 
 

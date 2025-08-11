@@ -48,6 +48,7 @@ class MessageProcessingResponse(BaseModel):
     products_extracted: int = Field(0, description="Number of products extracted")
     order_created: bool = Field(False, description="Whether an order was created")
     order_id: Optional[str] = Field(None, description="Created order ID if applicable")
+    continuation_order_id: Optional[str] = Field(None, description="Continued order ID if applicable")
     processing_time_ms: int = Field(0, description="Processing time in milliseconds")
     error_message: Optional[str] = Field(None, description="Error message if failed")
 
@@ -200,6 +201,7 @@ async def process_message(
                 products_extracted=0,
                 order_created=False,
                 order_id=None,
+                continuation_order_id=None,
                 processing_time_ms=0,
                 error_message="AI processing failed - check logs for details"
             )
@@ -207,6 +209,7 @@ async def process_message(
         # Handle different result types based on agent used
         order_created = False
         order_id = None
+        continuation_order_id = None
         intent = None
         confidence = None
         products_extracted = 0
@@ -224,18 +227,28 @@ async def process_message(
             if result.decision:
                 intent = "BUY" if order_created else "UNKNOWN"
                 confidence = result.decision.confidence if hasattr(result.decision, 'confidence') else 0.9
-        elif hasattr(result, 'intent'):  # SessionAnalysis from streamlined agent
+        elif hasattr(result, 'intent'):  # MessageAnalysis from streamlined agent
             # Streamlined agent result
             logger.info(f"📊 Processed by Streamlined Agent")
             intent = result.intent.intent
             confidence = result.intent.confidence
             products_extracted = len(result.extracted_products) if result.extracted_products else 0
             processing_time_ms = result.processing_time_ms
-            # Check if order was created
+            
+            # Check if order was created or continued
             if (result.intent.intent == "BUY" and 
                 result.extracted_products and 
                 result.is_high_confidence):
                 order_created = True
+            
+            # Get order ID and continuation info from result
+            continuation_order_id = None
+            if hasattr(result, 'continuation_order_id') and result.continuation_order_id:
+                continuation_order_id = result.continuation_order_id
+                order_id = result.continuation_order_id  # Also set main order_id
+                logger.info(f"📦 Order continued: {order_id}")
+            elif hasattr(result, 'is_continuation') and result.is_continuation:
+                logger.info(f"📦 Continuation detected but no order_id available")
         
         logger.info(f"✅ Message processed successfully: {request.message_id}")
         
@@ -247,6 +260,7 @@ async def process_message(
             products_extracted=products_extracted,
             order_created=order_created,
             order_id=order_id,
+            continuation_order_id=continuation_order_id,
             processing_time_ms=processing_time_ms,
             error_message=None
         )
@@ -262,6 +276,7 @@ async def process_message(
             products_extracted=0,
             order_created=False,
             order_id=None,
+            continuation_order_id=None,
             processing_time_ms=0,
             error_message=f"Processing error: {str(e)}"
         )

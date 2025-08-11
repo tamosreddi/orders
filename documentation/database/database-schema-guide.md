@@ -287,6 +287,9 @@ Every message, order, and product interaction is enhanced with AI processing and
 - `ai_suggested_responses`: JSON array of AI-generated response suggestions
 - `order_context_id`: Soft reference to order if message created/relates to an order
 - `order_session_id`: Links message to an order collection session for grouping related order messages
+- `is_continuation`: **NEW** - Boolean indicating if this message continues an existing order conversation
+- `parent_order_id`: **NEW** - UUID referencing the order being continued (clearer than order_context_id)
+- `continuation_sequence`: **NEW** - Integer tracking the sequence of continuation messages for a given order (1, 2, 3, etc.)
 - `thread_position`: Message sequence number in conversation
 - `reply_to_message_id`: If replying to specific message, references that message
 - `external_message_id`: ID from external system (WhatsApp, SMS provider)
@@ -296,13 +299,21 @@ Every message, order, and product interaction is enhanced with AI processing and
 **Relationships**:
 - ⬅️ **conversations**: Each message belongs to exactly one conversation
 - ⬅️ **conversation_order_sessions**: Message can be part of an order collection session
+- ⬅️ **orders** (parent_order_id): **NEW** - Continuation messages reference the order they're modifying
 - ➡️ **ai_responses**: AI can generate multiple analysis responses per message
 - ➡️ **orders**: Message can trigger automatic order creation
 - ⬅️ **messages** (reply_to): Messages can reference other messages in thread
 
 **How It Works**: Every message sent or received is stored here with its full content and metadata. AI automatically processes each message to extract intent, identify products, and suggest responses. The system tracks delivery status and maintains proper threading for complex conversations.
 
-**Why It Exists**: Central repository for all communications with AI enhancement, enabling intelligent automation, order processing, and customer service while maintaining complete message history.
+**Continuation Tracking**: The new continuation columns enable explicit tracking of multi-message order flows:
+- `is_continuation`: Set to TRUE when AI detects this message is adding/modifying an existing order
+- `parent_order_id`: Links directly to the order being continued, providing clear traceability
+- `continuation_sequence`: Orders continuation messages chronologically (1st continuation = 1, 2nd = 2, etc.)
+
+This replaces the previous implicit `order_context_id` approach with explicit continuation state management, enabling better analytics on conversation flows and more reliable order modification tracking.
+
+**Why It Exists**: Central repository for all communications with AI enhancement, enabling intelligent automation, order processing, and customer service while maintaining complete message history. The explicit continuation tracking provides clear visibility into multi-message order collection patterns and customer behavior analytics.
 
 ---
 
@@ -999,6 +1010,43 @@ LEFT JOIN order_session_items i ON i.order_session_id = s.id
 WHERE s.status IN ('ACTIVE', 'COLLECTING', 'REVIEWING')
   AND s.distributor_id = get_current_distributor_id()
 GROUP BY s.id;
+```
+
+### **For Continuation Message Analytics**
+```sql
+-- Get orders with their continuation message counts
+SELECT o.id, o.order_number, o.received_date,
+       COUNT(m.id) as continuation_message_count,
+       MAX(m.continuation_sequence) as max_sequence
+FROM orders o
+LEFT JOIN messages m ON m.parent_order_id = o.id AND m.is_continuation = TRUE
+WHERE o.distributor_id = get_current_distributor_id()
+GROUP BY o.id, o.order_number, o.received_date
+HAVING COUNT(m.id) > 0
+ORDER BY continuation_message_count DESC;
+```
+
+```sql
+-- Get all continuation messages for a specific order (ordered chronologically)
+SELECT m.id, m.content, m.continuation_sequence, m.created_at,
+       m.ai_extracted_products
+FROM messages m
+WHERE m.parent_order_id = 'your-order-id-here'
+  AND m.is_continuation = TRUE
+ORDER BY m.continuation_sequence ASC;
+```
+
+```sql
+-- Analytics: Most common continuation patterns
+SELECT continuation_sequence,
+       COUNT(*) as message_count,
+       AVG(ai_confidence) as avg_confidence
+FROM messages m
+JOIN conversations c ON c.id = m.conversation_id
+WHERE m.is_continuation = TRUE
+  AND c.distributor_id = get_current_distributor_id()
+GROUP BY continuation_sequence
+ORDER BY continuation_sequence;
 ```
 
 This database schema provides a robust foundation for an AI-powered, multi-tenant order management platform with enterprise-grade security and real-time capabilities. 🚀

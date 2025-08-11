@@ -175,7 +175,7 @@ export async function getOrders(): Promise<Order[]> {
     const distributorId = getCurrentDistributorId();
 
     // Get orders with customer data using a join
-    const { data: ordersWithCustomers, error: ordersError } = await supabase
+    const { data: ordersWithCustomers, error: ordersError } = await (supabase as any)
       .from('orders')
       .select(`
         *,
@@ -198,8 +198,8 @@ export async function getOrders(): Promise<Order[]> {
     }
 
     // Get product quantities for all orders in one query
-    const orderIds = ordersWithCustomers.map(o => o.id);
-    const { data: productData, error: productCountError } = await supabase
+    const orderIds = ordersWithCustomers.map((o: any) => o.id);
+    const { data: productData, error: productCountError } = await (supabase as any)
       .from('order_products')
       .select('order_id, quantity')
       .in('order_id', orderIds);
@@ -210,12 +210,12 @@ export async function getOrders(): Promise<Order[]> {
 
     // Sum quantities by order_id (total items per order)
     const productCountMap: Record<string, number> = {};
-    productData?.forEach(pd => {
+    productData?.forEach((pd: any) => {
       productCountMap[pd.order_id] = (productCountMap[pd.order_id] || 0) + pd.quantity;
     });
 
     // Map to frontend format
-    return ordersWithCustomers.map(orderData => {
+    return ordersWithCustomers.map((orderData: any) => {
       const customer = Array.isArray(orderData.customers) 
         ? orderData.customers[0] 
         : orderData.customers;
@@ -244,7 +244,7 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
     const distributorId = getCurrentDistributorId();
 
     // Get order with customer data and original message
-    const { data: orderData, error: orderError } = await supabase
+    const { data: orderData, error: orderError } = await (supabase as any)
       .from('orders')
       .select(`
         *,
@@ -273,7 +273,7 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
     }
 
     // Get order products
-    const { data: orderProducts, error: productsError } = await supabase
+    const { data: orderProducts, error: productsError } = await (supabase as any)
       .from('order_products')
       .select('*')
       .eq('order_id', orderId)
@@ -281,6 +281,23 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
 
     if (productsError) {
       throw handleSupabaseError(productsError);
+    }
+
+    // Get all messages related to this order (original + continuation messages)
+    console.log('🔍 Fetching messages for order:', orderId, 'conversation:', orderData.conversation_id, 'source_message:', orderData.ai_source_message_id);
+    
+    const { data: allMessages, error: messagesError } = await supabase
+      .from('messages')
+      .select('id, content, created_at, ai_extracted_intent, is_continuation, parent_order_id, continuation_sequence')
+      .or(`id.eq.${orderData.ai_source_message_id},parent_order_id.eq.${orderId}`)
+      .eq('conversation_id', orderData.conversation_id)
+      .order('created_at', { ascending: true });
+
+    console.log('📨 Found messages:', allMessages?.length || 0, allMessages);
+    
+    if (messagesError) {
+      console.warn('Error fetching order messages:', messagesError);
+      // Don't throw - fallback to original message only
     }
 
     const customer = Array.isArray(orderData.customers) 
@@ -300,7 +317,7 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
     };
 
     // Map order products to frontend format
-    const products: OrderProduct[] = orderProducts?.map(p => ({
+    const products: OrderProduct[] = orderProducts?.map((p: any) => ({
       id: p.id,
       name: p.product_name,
       unit: p.product_unit,
@@ -308,6 +325,32 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
       unitPrice: p.unit_price,
       linePrice: p.line_price
     })) || [];
+
+    // Map all messages to frontend format
+    const mappedMessages = allMessages?.map((msg: any) => ({
+      id: msg.id,
+      content: msg.content,
+      timestamp: msg.created_at,
+      isOriginal: msg.id === orderData.ai_source_message_id,
+      isContinuation: msg.is_continuation || false,
+      continuationSequence: msg.continuation_sequence || null,
+      intent: msg.ai_extracted_intent || null
+    })) || [];
+
+    console.log('🗂️ Mapped messages:', mappedMessages.length, mappedMessages);
+
+    // If no messages found via query, fallback to original message
+    const messagesForDisplay = mappedMessages.length > 0 
+      ? mappedMessages 
+      : (originalMessage ? [{
+          id: originalMessage.id,
+          content: originalMessage.content,
+          timestamp: originalMessage.created_at,
+          isOriginal: true,
+          intent: null
+        }] : []);
+
+    console.log('💬 Final messages for display:', messagesForDisplay.length, messagesForDisplay);
 
     const orderDetails: OrderDetails = {
       id: orderData.id,
@@ -332,6 +375,7 @@ export async function getOrderById(orderId: string): Promise<OrderDetails | null
         content: originalMessage.content,
         timestamp: originalMessage.created_at
       } : null,
+      allMessages: messagesForDisplay,
       status: orderData.status === 'CONFIRMED' ? 'CONFIRMED' : 
               orderData.status === 'REVIEW' ? 'REVIEW' : 'PENDING'
     };
@@ -354,7 +398,7 @@ export async function updateOrderStatus(orderId: string, status: Order['status']
   try {
     const distributorId = getCurrentDistributorId();
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('orders')
       .update({ 
         status: status,
@@ -383,7 +427,7 @@ export async function bulkUpdateOrderStatus(orderIds: string[], status: Order['s
   try {
     const distributorId = getCurrentDistributorId();
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('orders')
       .update({ 
         status: status,
@@ -432,11 +476,11 @@ export async function updateOrderProduct(
     });
     
     // Set distributor context for RLS
-    await supabase.rpc('set_distributor_context', { distributor_uuid: distributorId });
+    await (supabase as any).rpc('set_distributor_context', { distributor_uuid: distributorId });
     console.log('🔐 Set distributor context:', distributorId);
 
     // Get current product data to calculate proper line_price
-    const { data: currentProduct, error: fetchError } = await supabase
+    const { data: currentProduct, error: fetchError } = await (supabase as any)
       .from('order_products')
       .select(`
         id,
@@ -510,7 +554,7 @@ export async function updateOrderProduct(
       expectingSelect: true
     });
 
-    const { data, error, count } = await supabase
+    const { data, error, count } = await (supabase as any)
       .from('order_products')
       .update(finalUpdates)
       .eq('id', orderProductId)
@@ -568,7 +612,7 @@ export async function addOrderProduct(
     const distributorId = getCurrentDistributorId();
 
     // Verify the order belongs to the current distributor
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await (supabase as any)
       .from('orders')
       .select('id, distributor_id')
       .eq('id', orderId)
@@ -580,7 +624,7 @@ export async function addOrderProduct(
     }
 
     // Get the next line_order number
-    const { data: maxLineOrder } = await supabase
+    const { data: maxLineOrder } = await (supabase as any)
       .from('order_products')
       .select('line_order')
       .eq('order_id', orderId)
@@ -591,7 +635,7 @@ export async function addOrderProduct(
     const nextLineOrder = (maxLineOrder?.line_order || 0) + 1;
 
     // Insert the new product
-    const { data: newProduct, error: insertError } = await supabase
+    const { data: newProduct, error: insertError } = await (supabase as any)
       .from('order_products')
       .insert([{
         order_id: orderId,
@@ -643,7 +687,7 @@ export async function deleteOrderProduct(orderProductId: string): Promise<void> 
     const distributorId = getCurrentDistributorId();
 
     // Verify the order product belongs to the current distributor and get order_id
-    const { data: orderProduct, error: fetchError } = await supabase
+    const { data: orderProduct, error: fetchError } = await (supabase as any)
       .from('order_products')
       .select(`
         id,
@@ -664,7 +708,7 @@ export async function deleteOrderProduct(orderProductId: string): Promise<void> 
     }
 
     // Delete the order product
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('order_products')
       .delete()
       .eq('id', orderProductId);
@@ -692,7 +736,7 @@ export async function updateOrderDeliveryDate(orderId: string, deliveryDate: str
   try {
     const distributorId = getCurrentDistributorId();
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('orders')
       .update({ 
         delivery_date: deliveryDate,
@@ -715,12 +759,163 @@ export async function updateOrderDeliveryDate(orderId: string, deliveryDate: str
 }
 
 /**
+ * Consolidates multiple orders into a single order
+ */
+export async function consolidateOrders(
+  orderIds: string[], 
+  consolidationData: {
+    receivedDate: string;
+    deliveryDate: string;
+  }
+): Promise<string> {
+  try {
+    const distributorId = getCurrentDistributorId();
+
+    // Get all orders with their data
+    const { data: orders, error: ordersError } = await (supabase as any)
+      .from('orders')
+      .select(`
+        *,
+        customers!inner (
+          id,
+          business_name,
+          customer_code,
+          avatar_url,
+          address
+        )
+      `)
+      .in('id', orderIds)
+      .eq('distributor_id', distributorId);
+
+    if (ordersError) {
+      throw handleSupabaseError(ordersError);
+    }
+
+    if (!orders || orders.length === 0) {
+      throw new OrderError(ORDER_ERROR_MESSAGES.ORDER_NOT_FOUND, 'ORDER_NOT_FOUND');
+    }
+
+    // Get the most recent order to use as template
+    const mostRecentOrder = orders.reduce((latest: any, current: any) => 
+      new Date(current.created_at) > new Date(latest.created_at) ? current : latest
+    );
+
+    // Get all order products from selected orders
+    const { data: allOrderProducts, error: productsError } = await (supabase as any)
+      .from('order_products')
+      .select('*')
+      .in('order_id', orderIds)
+      .order('line_order');
+
+    if (productsError) {
+      throw handleSupabaseError(productsError);
+    }
+
+    // Create new consolidated order
+    const newOrderId = crypto.randomUUID();
+    const customer = Array.isArray(mostRecentOrder.customers) 
+      ? mostRecentOrder.customers[0] 
+      : mostRecentOrder.customers;
+
+    const { data: newOrder, error: createError } = await (supabase as any)
+      .from('orders')
+      .insert([{
+        id: newOrderId,
+        customer_id: customer.id,
+        conversation_id: mostRecentOrder.conversation_id,
+        channel: mostRecentOrder.channel,
+        status: 'PENDING',
+        received_date: consolidationData.receivedDate,
+        received_time: mostRecentOrder.received_time,
+        delivery_date: consolidationData.deliveryDate,
+        postal_code: mostRecentOrder.postal_code,
+        delivery_address: mostRecentOrder.delivery_address,
+        total_amount: 0, // Will be calculated after adding products
+        additional_comment: `Consolidated order from ${orderIds.length} orders`,
+        whatsapp_message: mostRecentOrder.whatsapp_message,
+        ai_generated: false,
+        requires_review: true,
+        distributor_id: distributorId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+
+    if (createError) {
+      throw handleSupabaseError(createError);
+    }
+
+    // Move all products to the new order with updated line_order
+    if (allOrderProducts && allOrderProducts.length > 0) {
+      const productsToInsert = allOrderProducts.map((product: any, index: number) => ({
+        id: crypto.randomUUID(),
+        order_id: newOrderId,
+        product_name: product.product_name,
+        product_unit: product.product_unit,
+        quantity: product.quantity,
+        unit_price: product.unit_price,
+        line_price: product.line_price,
+        ai_extracted: product.ai_extracted,
+        ai_confidence: product.ai_confidence,
+        ai_original_text: product.ai_original_text,
+        suggested_product_id: product.suggested_product_id,
+        manual_override: product.manual_override,
+        line_order: index + 1,
+        notes: product.notes,
+        matched_product_id: product.matched_product_id,
+        matching_confidence: product.matching_confidence,
+        matching_method: product.matching_method,
+        matching_score: product.matching_score,
+        alternative_matches: product.alternative_matches,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      const { error: productsInsertError } = await (supabase as any)
+        .from('order_products')
+        .insert(productsToInsert);
+
+      if (productsInsertError) {
+        // Cleanup: delete the created order if product insertion fails
+        await (supabase as any).from('orders').delete().eq('id', newOrderId);
+        throw handleSupabaseError(productsInsertError);
+      }
+
+      // Update the order total
+      await updateOrderTotal(newOrderId);
+    }
+
+    // Delete the original orders after successful consolidation
+    const { error: deleteError } = await (supabase as any)
+      .from('orders')
+      .delete()
+      .in('id', orderIds)
+      .eq('distributor_id', distributorId);
+
+    if (deleteError) {
+      console.warn('Failed to delete original orders:', deleteError);
+      // Don't throw error here as the consolidation was successful
+    }
+
+    return newOrderId;
+
+  } catch (error) {
+    console.error('Error consolidating orders:', error);
+    if (error instanceof OrderError) {
+      throw error;
+    }
+    throw handleSupabaseError(error);
+  }
+}
+
+/**
  * Helper function to recalculate and update order total
  */
 async function updateOrderTotal(orderId: string): Promise<void> {
   try {
     // Get all products for this order
-    const { data: products, error: productsError } = await supabase
+    const { data: products, error: productsError } = await (supabase as any)
       .from('order_products')
       .select('line_price')
       .eq('order_id', orderId);
@@ -730,10 +925,10 @@ async function updateOrderTotal(orderId: string): Promise<void> {
     }
 
     // Calculate new total
-    const newTotal = products?.reduce((sum, product) => sum + (product.line_price || 0), 0) || 0;
+    const newTotal = products?.reduce((sum: number, product: any) => sum + (product.line_price || 0), 0) || 0;
 
     // Update the order total
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase as any)
       .from('orders')
       .update({ 
         total_amount: newTotal,

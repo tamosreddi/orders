@@ -216,6 +216,14 @@ Té verde 2
 Vino tinto 2 botellas
 Pan integral 2 barras
 Manzanas orgánicas 1`,
+    allMessages: [{
+      id: 'msg-1',
+      content: 'Hola! Quisiera hacer un pedido de verduras frescas para mañana por favor.',
+      timestamp: baseOrder.receivedDate,
+      isOriginal: true,
+      isContinuation: false,
+      intent: 'ORDER_REQUEST'
+    }],
     status: baseOrder.status
   };
 

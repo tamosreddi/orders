@@ -7,6 +7,16 @@ export interface OrderProduct {
   linePrice: number;
 }
 
+export interface OrderMessage {
+  id: string;
+  content: string;
+  timestamp: string;
+  isOriginal: boolean;
+  isContinuation?: boolean;
+  continuationSequence?: number | null;
+  intent?: string | null;
+}
+
 export interface OrderDetails {
   id: string;
   customer: {
@@ -30,6 +40,7 @@ export interface OrderDetails {
     content: string;
     timestamp: string;
   } | null;
+  allMessages: OrderMessage[];
   status: 'CONFIRMED' | 'PENDING' | 'REVIEW';
 }
 

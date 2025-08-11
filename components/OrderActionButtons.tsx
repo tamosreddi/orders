@@ -1,6 +1,6 @@
 'use client';
 
-import { Trash2, Upload, Check } from 'lucide-react';
+import { Trash2, Upload, Check, Merge } from 'lucide-react';
 import { Order } from '../types/order';
 
 interface OrderActionButtonsProps {
@@ -8,15 +8,18 @@ interface OrderActionButtonsProps {
   onDelete: (orderIds: string[]) => void;
   onUpload: (orderIds: string[]) => void;
   onConfirm: (orderIds: string[]) => void;
+  onConsolidate: (orderIds: string[]) => void;
 }
 
 export function OrderActionButtons({ 
   selectedOrders, 
   onDelete, 
   onUpload, 
-  onConfirm 
+  onConfirm,
+  onConsolidate 
 }: OrderActionButtonsProps) {
   const hasSelection = selectedOrders.length > 0;
+  const hasMultipleSelection = selectedOrders.length >= 2;
   const hasUnconfirmedSelection = selectedOrders.some(order => order.status !== 'CONFIRMED');
   const selectedOrderIds = selectedOrders.map(order => order.id);
 
@@ -51,6 +54,22 @@ export function OrderActionButtons({
         title="Upload"
       >
         <Upload size={16} />
+      </button>
+
+      {/* Consolidate Orders Button */}
+      <button
+        onClick={() => onConsolidate(selectedOrderIds)}
+        disabled={!hasMultipleSelection}
+        className={`
+          px-4 py-2 text-sm font-medium rounded-md transition-all duration-fast
+          ${hasMultipleSelection
+            ? 'bg-purple-600 text-white hover:opacity-90'
+            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+          }
+        `}
+      >
+        <Merge size={16} className="inline mr-2" />
+        Consolidar
       </button>
 
       {/* Confirm Order Button */}

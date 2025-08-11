@@ -119,21 +119,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
 
     // INTEGRATION: Trigger AI agent processing in the background
-    try {
-      await triggerAIAgentProcessing({
-        messageId: result.message.id,
-        customerId: result.customer.id,
-        conversationId: result.conversation.id,
-        content: validatedPayload.Body,
-        distributorId: distributorId,
-        channel: 'WHATSAPP'
-      });
-      console.log('🤖 AI agent processing triggered successfully');
-    } catch (aiError) {
-      // Log but don't fail the webhook - message is already stored
-      console.error('⚠️ Failed to trigger AI agent processing:', aiError);
-      // AI processing will be picked up by polling loop as fallback
-    }
+    // DISABLED: AI processing is already triggered in processWhatsAppMessage to avoid duplicate orders
+    // try {
+    //   await triggerAIAgentProcessing({
+    //     messageId: result.message.id,
+    //     customerId: result.customer.id,
+    //     conversationId: result.conversation.id,
+    //     content: validatedPayload.Body,
+    //     distributorId: distributorId,
+    //     channel: 'WHATSAPP'
+    //   });
+    //   console.log('🤖 AI agent processing triggered successfully');
+    // } catch (aiError) {
+    //   // Log but don't fail the webhook - message is already stored
+    //   console.error('⚠️ Failed to trigger AI agent processing:', aiError);
+    //   // AI processing will be picked up by polling loop as fallback
+    // }
 
     // Real-time updates are handled automatically by Supabase Realtime
     console.log('✅ Message processed - real-time updates via Supabase Realtime');

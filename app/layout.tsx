@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
-import { NavigationProvider } from '../components/navigation-menu/NavigationContext';
-import { NavigationMenu } from '../components/navigation-menu/NavigationMenu';
-import { MainContent } from '../components/navigation-menu/MainContent';
 import { AuthProvider } from '../lib/auth/AuthContext';
+import { ConditionalLayout } from '../components/ConditionalLayout';
 
 const inter = Inter({ subsets: ['latin'] });
+const plusJakarta = Plus_Jakarta_Sans({ 
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-plus-jakarta'
+});
 
 export const metadata: Metadata = {
-  title: 'Reddi Orders Dashboard',
-  description: 'Manage your orders efficiently with the Reddi dashboard',
+  title: 'Reddi - AI Order Processing for Food Distributors',
+  description: 'Automate order processing with AI agents. Save time and grow your food distribution business.',
 };
 
 export default function RootLayout({
@@ -19,17 +22,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} font-antialiased`}>
+    <html lang="en" className={plusJakarta.variable}>
+      <body className={`${plusJakarta.className} font-antialiased`}>
         <AuthProvider>
-          <NavigationProvider>
-            <div className="min-h-screen bg-surface-0">
-              <NavigationMenu />
-              <MainContent>
-                {children}
-              </MainContent>
-            </div>
-          </NavigationProvider>
+          <ConditionalLayout>
+            {children}
+          </ConditionalLayout>
         </AuthProvider>
       </body>
     </html>

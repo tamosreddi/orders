@@ -110,7 +110,7 @@ export function OrderTable({ orders, rowSelection, onRowSelectionChange }: Order
 
     // Delivery Date column
     columnHelper.accessor('deliveryDate', {
-      header: 'Fecha de Envío',
+      header: 'Fecha de Entrega',
       cell: (info) => {
         const deliveryDate = info.getValue();
         if (!deliveryDate || deliveryDate === 'por confirmar') {

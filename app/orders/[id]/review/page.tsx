@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { X } from 'lucide-react';
-import { OrderDetails, OrderProduct } from '../../../../types/order';
+import { OrderDetails, OrderProduct, OrderMessage } from '../../../../types/order';
 import { Customer } from '../../../../types/customer';
 import { getOrderById, updateOrderProduct, addOrderProduct, deleteOrderProduct, updateOrderDeliveryDate, updateOrderStatus, OrderError } from '../../../../lib/api/orders';
 import { getCustomerByCode } from '../../../../lib/api/customers';
@@ -34,6 +34,8 @@ export default function OrderReviewPage() {
       try {
         const details = await getOrderById(orderId);
         if (details) {
+          console.log('🎯 Order details received:', details);
+          console.log('📱 All messages:', details.allMessages?.length || 0, details.allMessages);
           setOrderDetails(details);
           setProducts(details.products);
           setComment(details.additionalComment);
@@ -271,8 +273,24 @@ export default function OrderReviewPage() {
           
           {/* Chat Messages - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-            {/* Original Message */}
-            {orderDetails.originalMessage ? (
+            {/* All Order Messages */}
+            {orderDetails.allMessages && orderDetails.allMessages.length > 0 ? (
+              orderDetails.allMessages.map((message, index) => (
+                <div key={message.id} className="bg-white rounded-lg p-3 max-w-xs">
+                  <p className="text-sm whitespace-pre-line">
+                    {message.content}
+                  </p>
+                  <div className="text-xs text-gray-500 mt-2 flex items-center justify-between">
+                    <span>
+                      {new Date(message.timestamp).toLocaleTimeString('es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : orderDetails.originalMessage ? (
               <div className="bg-white rounded-lg p-3 max-w-xs">
                 <p className="text-sm whitespace-pre-line">
                   {orderDetails.originalMessage.content}

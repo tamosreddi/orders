@@ -204,6 +204,17 @@ class MessageAnalysis(BaseModel):
         description="Whether this message closed an order session"
     )
     
+    # Continuation fields
+    is_continuation: bool = Field(
+        default=False,
+        description="Whether this message continued an existing order"
+    )
+    
+    continuation_order_id: Optional[str] = Field(
+        None,
+        description="ID of the order that was continued/modified"
+    )
+    
     @validator('customer_notes')
     def validate_customer_notes(cls, v):
         """Clean customer notes if provided."""

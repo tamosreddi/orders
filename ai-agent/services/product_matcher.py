@@ -16,10 +16,14 @@ from __future__ import annotations as _annotations
 
 import logging
 import re
+import json
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 import unicodedata
+
+from openai import AsyncOpenAI
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +90,7 @@ class ProductMatcher:
         'EXACT': 1.0,
         'ALIAS_EXACT': 0.95,
         'MISSPELLING': 0.90,
+        'AI_ENHANCED': 0.88,  # AI-enhanced selection from uncertain matches
         'KEYWORD_EXACT': 0.85,
         'AI_TRAINING': 0.80,
         'FUZZY_HIGH': 0.75,
@@ -97,6 +102,8 @@ class ProductMatcher:
     def __init__(self):
         """Initialize the product matcher."""
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        # Initialize OpenAI client for AI enhancement (lazy loading)
+        self._openai_client = None
         
     def normalize_text(self, text: str) -> str:
         """
@@ -599,7 +606,108 @@ class ProductMatcher:
         
         return None
     
-    def match_products(self, query: str, product_catalog: List[Dict[str, Any]]) -> MatchResult:
+    def _get_openai_client(self) -> AsyncOpenAI:
+        """Get or create OpenAI client (lazy loading)."""
+        if self._openai_client is None:
+            self._openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+        return self._openai_client
+    
+    async def _ai_enhanced_selection(
+        self, 
+        customer_query: str, 
+        top_matches: List[ProductMatch], 
+        context: str = ""
+    ) -> Optional[ProductMatch]:
+        """
+        Use OpenAI to pick the best match from uncertain results.
+        Only called for MEDIUM/LOW confidence cases to improve accuracy.
+        
+        Args:
+            customer_query: Original customer request
+            top_matches: List of potential matches (max 3)
+            context: Additional context about the customer or conversation
+            
+        Returns:
+            Enhanced ProductMatch with AI_ENHANCED type, or None if failed
+        """
+        if not settings.ai_enhancement_enabled or not top_matches:
+            return None
+            
+        try:
+            # Limit to top 3 matches for clarity
+            candidates = top_matches[:3]
+            
+            # Build simple options for AI
+            options = []
+            for i, match in enumerate(candidates, 1):
+                size_info = f" ({', '.join(match.size_variants)})" if match.size_variants else ""
+                brand_info = f" - {match.brand}" if match.brand else ""
+                options.append(f"{i}. {match.product_name}{size_info}{brand_info}")
+            
+            # Create simple prompt
+            prompt = f"""Customer says: "{customer_query}"
+
+Available products:
+{chr(10).join(options)}
+
+Context: {context}
+
+Which product best matches the customer's intent? Respond with only the number (1, 2, or 3)."""
+
+            # Call OpenAI with simple model
+            client = self._get_openai_client()
+            response = await client.chat.completions.create(
+                model=settings.ai_enhancement_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=5,
+                temperature=0.1  # Low temperature for consistent results
+            )
+            
+            # Parse response
+            ai_choice = response.choices[0].message.content.strip()
+            
+            # Validate and convert response
+            try:
+                choice_num = int(ai_choice)
+                if 1 <= choice_num <= len(candidates):
+                    selected_match = candidates[choice_num - 1]
+                    
+                    # Create enhanced match with higher confidence
+                    enhanced_match = ProductMatch(
+                        product_id=selected_match.product_id,
+                        product_name=selected_match.product_name,
+                        sku=selected_match.sku,
+                        unit=selected_match.unit,
+                        unit_price=selected_match.unit_price,
+                        stock_quantity=selected_match.stock_quantity,
+                        in_stock=selected_match.in_stock,
+                        minimum_order_quantity=selected_match.minimum_order_quantity,
+                        match_type='AI_ENHANCED',
+                        confidence=self.MATCH_CONFIDENCE_SCORES['AI_ENHANCED'],
+                        matched_text=f"AI selected from: {selected_match.matched_text}",
+                        original_query=customer_query,
+                        brand=selected_match.brand,
+                        category=selected_match.category,
+                        size_variants=selected_match.size_variants,
+                        aliases=selected_match.aliases
+                    )
+                    
+                    self.logger.info(f"AI enhanced match: '{customer_query}' → '{selected_match.product_name}' (choice {choice_num})")
+                    return enhanced_match
+                    
+                else:
+                    self.logger.warning(f"AI returned invalid choice: {choice_num}")
+                    
+            except ValueError:
+                self.logger.warning(f"AI returned non-numeric response: {ai_choice}")
+                
+        except Exception as e:
+            self.logger.error(f"AI enhancement failed: {e}")
+        
+        # Return None if AI enhancement fails - fallback to original matching
+        return None
+    
+    async def match_products(self, query: str, product_catalog: List[Dict[str, Any]]) -> MatchResult:
         """
         Main method to match products with comprehensive result.
         
@@ -617,6 +725,28 @@ class ProductMatcher:
         confidence_level = self.classify_confidence_level(matches)
         
         best_match = matches[0] if matches else None
+        
+        # Try AI enhancement for MEDIUM/LOW confidence matches
+        if (settings.ai_enhancement_enabled and 
+            confidence_level in ["MEDIUM", "LOW"] and 
+            matches and 
+            best_match.confidence < settings.ai_enhancement_threshold):
+            
+            self.logger.debug(f"Attempting AI enhancement for '{query}' (confidence: {best_match.confidence:.2f})")
+            
+            enhanced_match = await self._ai_enhanced_selection(
+                customer_query=query,
+                top_matches=matches[:3],  # Pass top 3 matches
+                context=""  # Could be enhanced with conversation context
+            )
+            
+            if enhanced_match:
+                # Replace best match with AI-enhanced version
+                matches = [enhanced_match] + [m for m in matches if m.product_id != enhanced_match.product_id]
+                best_match = enhanced_match
+                confidence_level = self.classify_confidence_level([enhanced_match])
+                self.logger.info(f"AI enhancement succeeded: {query} → {enhanced_match.product_name} (confidence: {enhanced_match.confidence:.2f})")
+        
         requires_clarification = confidence_level in ["MEDIUM", "LOW", "NONE"]
         suggested_question = None
         
